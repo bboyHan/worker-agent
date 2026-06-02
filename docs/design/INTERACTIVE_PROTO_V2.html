@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Worker Agent v2.0 — UI/UX Prototype</title>
+<style>
+:root {
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-surface: #21262d;
+  --bg-hover: rgba(255,255,255,0.05);
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #484f58;
+  --accent-brand: #7c3aed;
+  --accent-brand-hover: #6d28d9;
+  --accent-success: #3fb950;
+  --accent-warning: #d29922;
+  --accent-error: #f85149;
+  --accent-info: #58a6ff;
+  --border-default: #30363d;
+  --border-focus: #58a6ff;
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.4);
+  --radius-md: 8px;
+  --font-system: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html,body { height:100%; overflow:hidden; font-family:var(--font-system); font-size:13px; color:var(--text-primary); background:var(--bg-primary); }
+
+/* ===== LAYOUT ===== */
+.app { display:flex; flex-direction:column; height:100vh; }
+.search-bar { display:flex; align-items:center; justify-content:center; height:48px; border-bottom:1px solid var(--border-default); background:var(--bg-primary); position:relative; z-index:100; flex-shrink:0; }
+.search-input { width:500px; max-width:90vw; padding:10px 16px; background:transparent; border:1px solid var(--border-default); border-radius:var(--radius-md); color:var(--text-primary); font-size:14px; outline:none; transition:all 150ms; }
+.search-input:focus { border-color:var(--accent-brand); box-shadow:0 0 0 3px rgba(124,58,237,0.15); background:var(--bg-surface); }
+.search-input::placeholder { color:var(--text-muted); }
+.search-hint { position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:11px; color:var(--text-muted); background:var(--bg-surface); padding:2px 6px; border-radius:4px; border:1px solid var(--border-default); }
+.window-controls { position:absolute; right:12px; display:flex; gap:8px; top:50%; transform:translateY(-50%); }
+.win-btn { width:12px; height:12px; border-radius:50%; opacity:0.7; transition:opacity 150ms; }
+.win-btn:hover { opacity:1; }
+
+.main-area { display:flex; flex:1; overflow:hidden; }
+
+/* ===== ICON BAR ===== */
+.icon-bar { width:50px; background:var(--bg-secondary); border-right:1px solid var(--border-default); display:flex; flex-direction:column; align-items:center; padding-top:8px; flex-shrink:0; position:relative; }
+.icon-btn { width:38px; height:38px; display:flex; align-items:center; justify-content:center; border-radius:8px; cursor:pointer; position:relative; color:var(--text-muted); transition:all 150ms; font-size:18px; margin:2px 0; }
+.icon-btn:hover { background:var(--bg-hover); color:var(--text-primary); }
+.icon-btn.active { color:var(--accent-brand); background:rgba(124,58,237,0.1); }
+.icon-btn.active::before { content:''; position:absolute; left:-1px; top:4px; bottom:4px; width:2px; background:var(--accent-brand); border-radius:0 2px 2px 0; }
+.icon-btn .tooltip { display:none; position:absolute; left:50px; top:50%; transform:translateY(-50%); background:var(--bg-surface); color:var(--text-primary); padding:6px 10px; border-radius:6px; font-size:12px; white-space:nowrap; box-shadow:var(--shadow-lg); border:1px solid var(--border-default); z-index:999; pointer-events:none; animation:tooltipIn 150ms; }
+.icon-btn .tooltip .shortcut { color:var(--text-muted); font-size:11px; margin-left:8px; }
+.icon-btn:hover .tooltip { display:block; }
+.icon-sep { width:28px; height:1px; background:var(--border-default); margin:6px 0; }
+
+@keyframes tooltipIn { from { opacity:0; transform:translateY(-50%) translateX(-4px); } to { opacity:1; transform:translateY(-50%) translateX(0); } }
+
+/* ===== WORKSPACE ===== */
+.workspace { flex:1; overflow:hidden; position:relative; }
+.workspace-content { width:100%; height:100%; overflow-y:auto; padding:24px; }
+
+/* Module: Welcome */
+.welcome { text-align:center; padding-top:80px; }
+.welcome-logo { font-size:48px; margin-bottom:16px; }
+.welcome h1 { font-size:28px; font-weight:600; margin-bottom:8px; background:linear-gradient(135deg,var(--accent-brand),var(--accent-info)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.welcome p { color:var(--text-secondary); margin-bottom:32px; }
+.welcome-quick { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+.quick-card { background:var(--bg-surface); border:1px solid var(--border-default); border-radius:12px; padding:20px; width:200px; cursor:pointer; transition:all 200ms; }
+.quick-card:hover { border-color:var(--accent-brand); transform:translateY(-2px); box-shadow:0 8px 24px rgba(124,58,237,0.15); }
+.quick-card .icon { font-size:24px; margin-bottom:8px; }
+.quick-card .title { font-weight:500; margin-bottom:4px; }
+.quick-card .desc { font-size:11px; color:var(--text-secondary); }
+
+/* Module: File Explorer */
+.file-list { background:var(--bg-surface); border-radius:var(--radius-md); overflow:hidden; }
+.file-item { display:flex; align-items:center; padding:8px 16px; cursor:pointer; transition:background 150ms; font-family:var(--font-mono); font-size:13px; }
+.file-item:hover { background:var(--bg-hover); }
+.file-item .indent { width:20px; flex-shrink:0; }
+.file-item .icon { width:20px; text-align:center; margin-right:8px; flex-shrink:0; }
+.file-item .name { flex:1; }
+.file-item .size { color:var(--text-muted); font-size:11px; }
+
+/* Module: Tasks */
+.task-board { display:flex; gap:16px; height:100%; }
+.task-col { flex:1; background:var(--bg-surface); border-radius:var(--radius-md); padding:12px; border:1px solid var(--border-default); }
+.task-col-title { font-weight:600; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.task-col-count { background:var(--bg-hover); padding:2px 8px; border-radius:12px; font-size:11px; color:var(--text-secondary); }
+.task-card { background:var(--bg-primary); border:1px solid var(--border-default); border-radius:8px; padding:12px; margin-bottom:8px; cursor:grab; transition:all 150ms; }
+.task-card:hover { border-color:var(--accent-brand); }
+.task-card .tag { display:inline-block; font-size:10px; padding:2px 6px; border-radius:4px; margin-right:4px; }
+.task-card .tag.p0 { background:rgba(248,81,73,0.15); color:var(--accent-error); }
+.task-card .tag.p1 { background:rgba(210,153,34,0.15); color:var(--accent-warning); }
+.task-card .tag.p2 { background:rgba(88,166,255,0.15); color:var(--accent-info); }
+.task-card .title { font-weight:500; margin:6px 0; }
+.task-card .bar { height:4px; background:var(--border-default); border-radius:2px; overflow:hidden; margin-top:8px; }
+.task-card .bar-fill { height:100%; background:var(--accent-brand); border-radius:2px; }
+
+/* Module: Agent Console */
+.agent-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.agent-card { background:var(--bg-surface); border-radius:var(--radius-md); padding:16px; border:1px solid var(--border-default); }
+.agent-card .status-line { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.agent-card .status-dot { width:8px; height:8px; border-radius:50%; }
+.agent-card .status-dot.running { background:var(--accent-success); box-shadow:0 0 8px rgba(63,185,80,0.4); animation:pulse 2s infinite; }
+.agent-card .status-dot.idle { background:var(--text-muted); }
+.agent-card .cpu-bar,.agent-card .mem-bar { height:3px; background:var(--border-default); border-radius:2px; margin:6px 0; overflow:hidden; }
+.agent-card .cpu-fill { height:100%; border-radius:2px; background:var(--accent-brand); }
+.agent-card .mem-fill { height:100%; border-radius:2px; background:var(--accent-info); }
+
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+
+/* Module: Server Monitor */
+.server-list { display:flex; flex-direction:column; gap:12px; }
+.server-card { display:flex; align-items:center; gap:16px; background:var(--bg-surface); border:1px solid var(--border-default); border-radius:var(--radius-md); padding:16px; }
+.server-card .info { flex:1; }
+.server-card .metric { display:flex; align-items:center; gap:8px; font-size:12px; margin:4px 0; }
+.server-card .metric .label { width:40px; color:var(--text-secondary); }
+.server-card .metric .bar { flex:1; height:4px; background:var(--border-default); border-radius:2px; overflow:hidden; }
+.server-card .metric .fill { height:100%; border-radius:2px; background:var(--accent-success); }
+.server-card .actions { display:flex; gap:6px; }
+.server-card .actions button { padding:4px 10px; border-radius:4px; border:1px solid var(--border-default); background:transparent; color:var(--text-secondary); cursor:pointer; font-size:11px; transition:all 150ms; }
+.server-card .actions button:hover { border-color:var(--accent-brand); color:var(--text-primary); }
+
+/* Module: Knowledge */
+.kb-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; }
+.kb-card { background:var(--bg-surface); border:1px solid var(--border-default); border-radius:var(--radius-md); padding:20px; cursor:pointer; transition:all 200ms; }
+.kb-card:hover { border-color:var(--accent-brand); transform:translateY(-2px); }
+.kb-card .emoji { font-size:28px; margin-bottom:8px; }
+.kb-card .title { font-weight:600; margin-bottom:4px; }
+.kb-card .meta { font-size:11px; color:var(--text-secondary); }
+
+/* Module: Settings */
+.settings-panel { max-width:600px; }
+.settings-group { margin-bottom:24px; }
+.settings-group h3 { font-size:14px; margin-bottom:12px; color:var(--text-secondary); }
+.setting-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border-default); }
+.setting-row .label { font-size:13px; }
+.setting-row .desc { font-size:11px; color:var(--text-muted); }
+.toggle { width:36px; height:20px; background:var(--border-default); border-radius:10px; position:relative; cursor:pointer; transition:background 200ms; }
+.toggle.on { background:var(--accent-brand); }
+.toggle::after { content:''; width:16px; height:16px; background:white; border-radius:50%; position:absolute; top:2px; left:2px; transition:transform 200ms; }
+.toggle.on::after { transform:translateX(16px); }
+
+/* ===== PANEL (Agent Chat / CLI) ===== */
+.panel-container { width:480px; min-width:300px; max-width:800px; display:flex; background:var(--bg-primary); border-left:1px solid var(--border-default); flex-shrink:0; transition:width 200ms ease-out, opacity 200ms; position:relative; }
+.panel-container.collapsed { width:0; min-width:0; opacity:0; overflow:hidden; border:none; }
+
+/* Resize handle */
+.resize-handle { width:6px; cursor:col-resize; position:absolute; left:-3px; top:0; bottom:0; z-index:10; transition:background 150ms; }
+.resize-handle:hover,.resize-handle.dragging { background:rgba(124,58,237,0.3); }
+
+/* Agent Chat */
+.agent-chat { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.chat-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--border-default); font-weight:600; font-size:13px; flex-shrink:0; }
+.chat-header .close-btn { cursor:pointer; color:var(--text-muted); padding:4px; transition:color 150ms; }
+.chat-header .close-btn:hover { color:var(--text-primary); }
+.chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:16px; }
+
+/* User Message */
+.msg-user { display:flex; gap:10px; align-items:flex-start; }
+.msg-user .avatar { width:32px; height:32px; border-radius:8px; background:var(--accent-brand); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+.msg-user .body { flex:1; background:var(--bg-surface); border-radius:var(--radius-md); padding:10px 14px; font-size:13px; line-height:1.5; }
+
+/* Agent Thought */
+.thought-block { border-left:2px solid var(--accent-info); padding-left:12px; margin:8px 0 8px 17px; }
+.thought-header { display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px; font-weight:500; color:var(--accent-info); margin-bottom:6px; }
+.thought-header .chevron { transition:transform 200ms; font-size:10px; }
+.thought-body { font-size:12px; color:var(--text-secondary); line-height:1.6; max-height:0; overflow:hidden; transition:max-height 300ms ease; }
+.thought-body.open { max-height:500px; }
+.thought-body ul { margin-left:16px; }
+
+/* Code Changes */
+.codech-block { background:var(--bg-surface); border-radius:var(--radius-md); margin:4px 0 4px 17px; }
+.codech-header { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; font-size:11px; color:var(--text-secondary); border-bottom:1px solid var(--border-default); }
+.codech-header span { font-weight:600; color:var(--text-primary); }
+.codech-file { display:flex; align-items:center; padding:6px 12px; font-family:var(--font-mono); font-size:12px; cursor:pointer; transition:background 150ms; }
+.codech-file:hover { background:var(--bg-hover); }
+.codech-file .name { flex:1; color:var(--text-primary); }
+.codech-file .diff { font-size:11px; display:flex; gap:8px; margin-right:8px; }
+.codech-file .diff .add { color:var(--accent-success); }
+.codech-file .diff .del { color:var(--accent-error); }
+.codech-file .btn { padding:2px 8px; font-size:11px; border:1px solid var(--border-default); border-radius:4px; background:transparent; color:var(--text-secondary); cursor:pointer; transition:all 150ms; }
+.codech-file .btn:hover { border-color:var(--accent-brand); color:var(--text-primary); }
+
+/* Product Summary */
+.product-block { background:rgba(63,185,80,0.08); border:1px solid rgba(63,185,80,0.2); border-radius:var(--radius-md); padding:10px 14px; margin:4px 0 4px 17px; }
+.product-header { font-size:12px; font-weight:600; color:var(--accent-success); margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+.product-stats { display:flex; gap:16px; font-size:11px; color:var(--text-secondary); margin-bottom:8px; }
+.product-files { margin-bottom:8px; }
+.product-file { display:flex; align-items:center; gap:6px; font-size:12px; padding:3px 0; font-family:var(--font-mono); }
+.product-actions { display:flex; gap:6px; }
+.product-actions button { padding:4px 10px; border-radius:4px; border:1px solid var(--border-default); background:transparent; color:var(--text-secondary); cursor:pointer; font-size:11px; transition:all 150ms; }
+.product-actions button:hover { border-color:var(--accent-brand); color:var(--text-primary); }
+.product-actions button.primary { background:var(--accent-brand); border-color:var(--accent-brand); color:white; }
+
+/* Chat Input */
+.chat-input-area { border-top:1px solid var(--border-default); padding:12px; display:flex; gap:8px; align-items:center; flex-shrink:0; }
+.chat-input { flex:1; padding:10px 14px; background:var(--bg-surface); border:1px solid var(--border-default); border-radius:var(--radius-md); color:var(--text-primary); font-size:13px; outline:none; transition:border-color 150ms; }
+.chat-input:focus { border-color:var(--accent-brand); }
+.chat-input::placeholder { color:var(--text-muted); }
+.chat-btn { width:34px; height:34px; border-radius:8px; border:none; background:transparent; color:var(--text-muted); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 150ms; font-size:16px; }
+.chat-btn:hover { color:var(--text-primary); background:var(--bg-hover); }
+.chat-btn.send { background:var(--accent-success); color:white; border-radius:6px; width:auto; padding:0 14px; font-size:12px; }
+.chat-btn.send:hover { background:rgba(63,185,80,0.8); }
+
+/* ===== FOLD BUTTON ===== */
+.fold-toggle { position:fixed; bottom:32px; right:20px; width:36px; height:36px; border-radius:50%; background:var(--accent-brand); border:none; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow-lg); z-index:99; transition:all 200ms; font-size:16px; }
+.fold-toggle:hover { background:var(--accent-brand-hover); transform:scale(1.1); }
+.fold-toggle.hidden { opacity:0; pointer-events:none; transform:scale(0.8); }
+
+/* ===== STATUS BAR ===== */
+.status-bar { display:flex; align-items:center; justify-content:space-between; height:24px; background:var(--bg-secondary); border-top:1px solid var(--border-default); padding:0 12px; font-size:11px; color:var(--text-secondary); flex-shrink:0; }
+.status-bar .left,.status-bar .right { display:flex; align-items:center; gap:16px; }
+.status-item { display:flex; align-items:center; gap:4px; cursor:pointer; padding:0 4px; transition:color 150ms; }
+.status-item:hover { color:var(--text-primary); }
+.status-dot { width:6px; height:6px; border-radius:50%; }
+.status-dot.green { background:var(--accent-success); }
+
+/* Module header */
+.module-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.module-header h2 { font-size:16px; font-weight:600; }
+.module-actions { display:flex; gap:8px; }
+.module-actions button { padding:6px 12px; border-radius:6px; border:1px solid var(--border-default); background:transparent; color:var(--text-secondary); cursor:pointer; font-size:12px; transition:all 150ms; }
+.module-actions button:hover { border-color:var(--accent-brand); color:var(--text-primary); }
+.module-actions button.primary { background:var(--accent-brand); border-color:var(--accent-brand); color:white; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width:8px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border-default); border-radius:4px; }
+::-webkit-scrollbar-thumb:hover { background:var(--text-muted); }
+
+/* Width indicator */
+.width-indicator { position:absolute; bottom:8px; left:50%; transform:translateX(-50%); background:var(--bg-surface); border:1px solid var(--border-default); border-radius:4px; padding:2px 8px; font-size:10px; color:var(--text-muted); opacity:0; transition:opacity 200ms; pointer-events:none; z-index:11; }
+.width-indicator.show { opacity:1; }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SEARCH BAR -->
+<div class="search-bar">
+  <input type="text" class="search-input" placeholder="搜索命令、文件、Agent..." id="searchInput">
+  <span class="search-hint">Ctrl+P</span>
+  <div class="window-controls">
+    <div class="win-btn" style="background:#f85149;"></div>
+    <div class="win-btn" style="background:#d29922;"></div>
+    <div class="win-btn" style="background:#3fb950;"></div>
+  </div>
+</div>
+
+<!-- MAIN AREA -->
+<div class="main-area">
+
+<!-- ICON BAR -->
+<div class="icon-bar">
+  <div class="icon-btn" data-module="welcome" onclick="switchModule('welcome')">
+    <span>🏠</span>
+    <div class="tooltip">首页<span class="shortcut">Ctrl+Home</span></div>
+  </div>
+  <div class="icon-btn" data-module="files" onclick="switchModule('files')">
+    <span>📄</span>
+    <div class="tooltip">文件<span class="shortcut">Ctrl+E</span></div>
+  </div>
+  <div class="icon-btn" data-module="tasks" onclick="switchModule('tasks')">
+    <span>📋</span>
+    <div class="tooltip">任务看板<span class="shortcut">Ctrl+Shift+E</span></div>
+  </div>
+  <div class="icon-btn active" data-module="agents" onclick="switchModule('agents')">
+    <span>🤖</span>
+    <div class="tooltip">Agent 控制台<span class="shortcut">Ctrl+Shift+A</span></div>
+  </div>
+  <div class="icon-btn" data-module="workflows" onclick="switchModule('workflows')">
+    <span>⚙️</span>
+    <div class="tooltip">工作流编排<span class="shortcut">Ctrl+Shift+W</span></div>
+  </div>
+  <div class="icon-btn" data-module="servers" onclick="switchModule('servers')">
+    <span>🖥</span>
+    <div class="tooltip">服务器监控<span class="shortcut">Ctrl+Shift+M</span></div>
+  </div>
+  <div class="icon-btn" data-module="knowledge" onclick="switchModule('knowledge')">
+    <span>📚</span>
+    <div class="tooltip">知识库<span class="shortcut">Ctrl+Shift+K</span></div>
+  </div>
+  <div class="icon-sep"></div>
+  <div class="icon-btn" data-module="plugins" onclick="switchModule('plugins')">
+    <span>🔌</span>
+    <div class="tooltip">插件管理<span class="shortcut">Ctrl+Shift+P</span></div>
+  </div>
+  <div class="icon-btn" data-module="settings" onclick="switchModule('settings')">
+    <span>⚙</span>
+    <div class="tooltip">设置<span class="shortcut">Ctrl+,</span></div>
+  </div>
+  <div class="icon-sep"></div>
+  <div class="icon-btn" id="panelToggleIcon" onclick="togglePanel()">
+    <span>⇕</span>
+    <div class="tooltip" id="panelTooltip">展开 Agent 面板<span class="shortcut">Ctrl+\`</span></div>
+  </div>
+</div>
+
+<!-- WORKSPACE -->
+<div class="workspace" id="workspace">
+<div class="workspace-content" id="workspaceContent">
+</div>
+</div>
+
+<!-- PANEL (Agent Chat) -->
+<div class="panel-container" id="agentPanel">
+  <div class="resize-handle" id="resizeHandle"></div>
+  <div class="width-indicator" id="widthIndicator">480px</div>
+  <div class="agent-chat">
+    <div class="chat-header">
+      <span>🤖 Agent 交互面板</span>
+      <span class="close-btn" onclick="togglePanel()">✕</span>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <!-- User message -->
+      <div class="msg-user">
+        <div class="avatar">👤</div>
+        <div class="body">帮忙生成一个可拖拽排序的待办列表组件，支持 CRUD 操作和 localStorage 持久化。</div>
+      </div>
+
+      <!-- Thought -->
+      <div class="thought-block">
+        <div class="thought-header" onclick="toggleThought(this)">
+          <span class="chevron">▼</span> 💡 Thinking Process
+        </div>
+        <div class="thought-body">
+          <ul>
+            <li>分析需求：待办列表需要 CRUD + 拖拽 + localStorage</li>
+            <li>技术选型：React + react-beautiful-dnd + localStorage API</li>
+            <li>需要创建 TodoList 组件、TodoItem 子组件、useTodoStore Store</li>
+            <li>考虑边界情况：空数组、拖拽失效、数据持久化失败</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Code Changes -->
+      <div class="codech-block">
+        <div class="codech-header">
+          <span>📄 Code Changes</span>
+          <span>3 files changed</span>
+        </div>
+        <div class="codech-file">
+          <span class="icon">📄</span>
+          <span class="name">src/components/TodoList.tsx</span>
+          <span class="diff"><span class="add">+12</span><span class="del">-3</span></span>
+          <button class="btn">查看变更</button>
+        </div>
+        <div class="codech-file">
+          <span class="icon">📄</span>
+          <span class="name">src/components/TodoItem.tsx</span>
+          <span class="diff"><span class="add">+8</span><span class="del">-0</span></span>
+          <button class="btn">查看变更</button>
+        </div>
+        <div class="codech-file">
+          <span class="icon">📄</span>
+          <span class="name">src/stores/useTodoStore.ts</span>
+          <span class="diff"><span class="add">+18</span><span class="del">-0</span></span>
+          <button class="btn">查看变更</button>
+        </div>
+      </div>
+
+      <!-- Product Summary -->
+      <div class="product-block">
+        <div class="product-header">✓ Product Summary — 任务完成</div>
+        <div class="product-stats">
+          <span>📦 3 个文件已生成</span>
+          <span>⏱️ 用时 2m 15s</span>
+          <span>📊 进度 100%</span>
+        </div>
+        <div class="product-files">
+          <div class="product-file">✅ src/components/TodoList.tsx — 主组件</div>
+          <div class="product-file">✅ src/components/TodoItem.tsx — 拖拽子组件</div>
+          <div class="product-file">✅ src/stores/useTodoStore.ts — 状态管理</div>
+        </div>
+        <div class="product-actions">
+          <button onclick="alert('全部撤销')">🔄 全部撤销</button>
+          <button class="primary" onclick="alert('全部保留')">✅ 全部保留</button>
+          <button onclick="alert('查看详情')">📋 查看详情</button>
+        </div>
+      </div>
+
+      <!-- System message -->
+      <div class="msg-user">
+        <div class="avatar" style="background:var(--accent-info);">🤖</div>
+        <div class="body">✅ 任务完成！所有文件已生成并应用变更。需要我继续调整吗？</div>
+      </div>
+    </div>
+
+    <div class="chat-input-area">
+      <input type="text" class="chat-input" placeholder="输入消息或 / 命令...">
+      <button class="chat-btn" title="附件">📎</button>
+      <button class="chat-btn" title="语音">🎤</button>
+      <button class="chat-btn send" title="发送">→ 发送</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- end main-area -->
+
+<!-- STATUS BAR -->
+<div class="status-bar">
+  <div class="left">
+    <div class="status-item"><span class="status-dot green"></span> Agent: 就绪</div>
+    <div class="status-item">⎇ main</div>
+  </div>
+  <div class="center">
+    <div class="status-item">📁 worker-agent</div>
+  </div>
+  <div class="right">
+    <div class="status-item">🔔</div>
+    <div class="status-item" id="clock">12:00 PM</div>
+  </div>
+</div>
+</div><!-- end app -->
+
+<!-- FOLD TOGGLE BUTTON -->
+<button class="fold-toggle" id="foldToggle" onclick="togglePanel()" title="展开/折叠 Agent 面板">⇕</button>
+<button class="fold-toggle hidden" id="unfoldToggle" onclick="togglePanel()" title="展开 Agent 面板" style="opacity:0;pointer-events:none;">✕</button>
+
+<script>
+// ===== MODULE CONTENT =====
+const modules = {
+  welcome: `
+    <div class="welcome">
+      <div class="welcome-logo">🤖</div>
+      <h1>Worker Agent v2.0</h1>
+      <p>下一个世代的多任务 Agent 管理平台</p>
+      <div class="welcome-quick">
+        <div class="quick-card" onclick="switchModule('agents')">
+          <div class="icon">🤖</div>
+          <div class="title">Agent 控制台</div>
+          <div class="desc">管理所有运行中的 Agent</div>
+        </div>
+        <div class="quick-card" onclick="switchModule('tasks')">
+          <div class="icon">📋</div>
+          <div class="title">任务看板</div>
+          <div class="desc">追踪所有任务的进度</div>
+        </div>
+        <div class="quick-card" onclick="switchModule('files')">
+          <div class="icon">📄</div>
+          <div class="title">文件管理</div>
+          <div class="desc">浏览和管理项目文件</div>
+        </div>
+        <div class="quick-card" onclick="switchModule('servers')">
+          <div class="icon">🖥</div>
+          <div class="title">服务器监控</div>
+          <div class="desc">监控服务器运行状态</div>
+        </div>
+      </div>
+    </div>
+  `,
+
+  files: `
+    <div class="module-header">
+      <h2>📄 文件管理</h2>
+      <div class="module-actions">
+        <button class="primary">+ 新文件</button>
+        <button>+ 文件夹</button>
+        <button>↻</button>
+      </div>
+    </div>
+    <div class="file-list">
+      <div class="file-item"><span class="indent"></span><span class="icon">📁</span><span class="name">assets</span></div>
+      <div class="file-item"><span class="indent">20px</span><span class="icon">📁</span><span class="name">icons</span></div>
+      <div class="file-item"><span class="indent">20px</span><span class="icon">📁</span><span class="name">styles</span></div>
+      <div class="file-item"><span class="indent"></span><span class="icon">📁</span><span class="name">components</span></div>
+      <div class="file-item"><span class="indent">20px</span><span class="icon">📁</span><span class="name">hooks</span></div>
+      <div class="file-item"><span class="indent">20px</span><span class="icon">📁</span><span class="name">stores</span></div>
+      <div class="file-item"><span class="indent"></span><span class="icon">📁</span><span class="name">config</span></div>
+      <div class="file-item"><span class="indent"></span><span class="icon">📁</span><span class="name">scripts</span></div>
+      <div class="file-item" style="background:rgba(124,58,237,0.08)"><span class="indent"></span><span class="icon">📄</span><span class="name">index.ts</span><span class="size">9.4 KB</span></div>
+      <div class="file-item"><span class="indent"></span><span class="icon">📄</span><span class="name">package.json</span><span class="size">774 B</span></div>
+      <div class="file-item"><span class="indent"></span><span class="icon">📄</span><span class="name">tsconfig.json</span><span class="size">460 B</span></div>
+      <div class="file-item"><span class="indent"></span><span class="icon">📄</span><span class="name">README.md</span><span class="size">12 KB</span></div>
+    </div>
+  `,
+
+  tasks: `
+    <div class="module-header">
+      <h2>📋 任务看板</h2>
+      <div class="module-actions">
+        <button class="primary">+ 新建任务</button>
+        <button>筛选 ▼</button>
+        <button>排序 ▼</button>
+      </div>
+    </div>
+    <div class="task-board">
+      <div class="task-col">
+        <div class="task-col-title">待处理 <span class="task-col-count">3</span></div>
+        <div class="task-card">
+          <span class="tag p0">P0</span><span class="tag p1">P1</span>
+          <div class="title">核心 API 开发</div>
+          <div class="bar"><div class="bar-fill" style="width:0%"></div></div>
+        </div>
+        <div class="task-card">
+          <span class="tag p1">P1</span>
+          <div class="title">文档编写</div>
+          <div class="bar"><div class="bar-fill" style="width:0%"></div></div>
+        </div>
+        <div class="task-card">
+          <span class="tag p2">P2</span>
+          <div class="title">插件系统架构</div>
+          <div class="bar"><div class="bar-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="task-col">
+        <div class="task-col-title">进行中 <span class="task-col-count">2</span></div>
+        <div class="task-card">
+          <span class="tag p0">P0</span>
+          <div class="title">Agent 状态机</div>
+          <div class="bar"><div class="bar-fill" style="width:65%"></div></div>
+        </div>
+        <div class="task-card">
+          <span class="tag p1">P1</span>
+          <div class="title">服务器监控模块</div>
+          <div class="bar"><div class="bar-fill" style="width:40%"></div></div>
+        </div>
+      </div>
+      <div class="task-col">
+        <div class="task-col-title">已完成 <span class="task-col-count">4</span></div>
+        <div class="task-card" style="opacity:0.7">
+          <span class="tag p2">P2</span>
+          <div class="title">UI 原型设计</div>
+          <div class="bar"><div class="bar-fill" style="width:100%;background:var(--accent-success)"></div></div>
+        </div>
+        <div class="task-card" style="opacity:0.7">
+          <span class="tag p2">P2</span>
+          <div class="title">初始框架搭建</div>
+          <div class="bar"><div class="bar-fill" style="width:100%;background:var(--accent-success)"></div></div>
+        </div>
+      </div>
+    </div>
+  `,
+
+  agents: `
+    <div class="module-header">
+      <h2>🤖 Agent 控制台</h2>
+      <div class="module-actions">
+        <button class="primary">+ 添加 Agent</button>
+        <button>⟳ 同步状态</button>
+      </div>
+    </div>
+    <div class="agent-grid">
+      <div class="agent-card">
+        <div class="status-line"><span class="status-dot running"></span><strong>编码 Agent</strong><span style="color:var(--text-muted);margin-left:auto;font-size:11px">🧠 128MB</span></div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px">模型: Qwen2.5-72B | 状态: 运行中</div>
+        <div class="cpu-bar"><div class="cpu-fill" style="width:45%"></div></div>
+        <div class="mem-bar"><div class="mem-fill" style="width:50%"></div></div>
+        <div class="actions" style="margin-top:8px"><button>⏸ 暂停</button><button>🔄 重启</button><button>⚙ 配置</button></div>
+      </div>
+      <div class="agent-card">
+        <div class="status-line"><span class="status-dot idle"></span><strong>前端 Agent</strong><span style="color:var(--text-muted);margin-left:auto;font-size:11px">🧠 256MB</span></div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px">模型: Claude Sonnet | 状态: 闲置</div>
+        <div class="cpu-bar"><div class="cpu-fill" style="width:0%"></div></div>
+        <div class="mem-bar"><div class="mem-fill" style="width:0%"></div></div>
+        <div class="actions" style="margin-top:8px"><button>▶ 启动</button><button>⚙ 配置</button></div>
+      </div>
+      <div class="agent-card">
+        <div class="status-line"><span class="status-dot idle"></span><strong>设计 Agent</strong><span style="color:var(--text-muted);margin-left:auto;font-size:11px">🧠 128MB</span></div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px">模型: GPT-4o | 状态: 闲置</div>
+        <div class="cpu-bar"><div class="cpu-fill" style="width:0%"></div></div>
+        <div class="mem-bar"><div class="mem-fill" style="width:0%"></div></div>
+        <div class="actions" style="margin-top:8px"><button>▶ 启动</button><button>⚙ 配置</button></div>
+      </div>
+      <div class="agent-card">
+        <div class="status-line"><span class="status-dot idle"></span><strong>文档 Agent</strong><span style="color:var(--text-muted);margin-left:auto;font-size:11px">⏸ 512MB</span></div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px">模型: Gemini Pro | 状态: 已暂停</div>
+        <div class="cpu-bar"><div class="cpu-fill" style="width:0%"></div></div>
+        <div class="mem-bar"><div class="mem-fill" style="width:0%"></div></div>
+        <div class="actions" style="margin-top:8px"><button>▶ 恢复</button><button>⚙ 配置</button></div>
+      </div>
+    </div>
+  `,
+
+  workflows: `
+    <div class="module-header">
+      <h2>⚙️ 工作流编排</h2>
+      <div class="module-actions">
+        <button class="primary">+ 新建工作流</button>
+        <button>📊 执行历史</button>
+      </div>
+    </div>
+    <div style="text-align:center;padding:60px 0">
+      <div style="font-size:48px;margin-bottom:16px;opacity:0.3">⚙️</div>
+      <h3 style="color:var(--text-secondary);margin-bottom:8px">工作流编辑器</h3>
+      <p style="color:var(--text-muted);font-size:12px">拖拽 Agent 节点构建自动化工作流</p>
+      <div style="margin-top:24px;display:flex;gap:12px;justify-content:center">
+        <div style="background:var(--bg-surface);border:1px solid var(--border-default);border-radius:8px;padding:12px 20px;color:var(--text-secondary)">🤖→🤖→✅</div>
+        <div style="background:var(--bg-surface);border:1px solid var(--border-default);border-radius:8px;padding:12px 20px;color:var(--text-secondary)">🤖+🤖→🎯</div>
+        <div style="background:var(--bg-surface);border:1px solid var(--border-default);border-radius:8px;padding:12px 20px;color:var(--text-secondary)">⏱→🤖→📦</div>
+      </div>
+    </div>
+  `,
+
+  servers: `
+    <div class="module-header">
+      <h2>🖥 服务器监控</h2>
+      <div class="module-actions">
+        <button class="primary">+ 添加服务器</button>
+        <button>⚠ 告警设置</button>
+      </div>
+    </div>
+    <div class="server-list">
+      <div class="server-card">
+        <div style="font-size:28px">🖥</div>
+        <div class="info">
+          <div style="font-weight:600;margin-bottom:4px">Production</div>
+          <div class="metric"><span class="label">CPU</span><div class="bar"><div class="fill" style="width:45%;background:var(--accent-success)"></div></div><span style="font-size:11px;width:35px;text-align:right">45%</span></div>
+          <div class="metric"><span class="label">MEM</span><div class="bar"><div class="fill" style="width:72%;background:var(--accent-warning)"></div></div><span style="font-size:11px;width:35px;text-align:right">72%</span></div>
+          <div class="metric"><span class="label">DISK</span><div class="bar"><div class="fill" style="width:60%;background:var(--accent-info)"></div></div><span style="font-size:11px;width:35px;text-align:right">60%</span></div>
+        </div>
+        <div class="actions"><button>⚙ 管理</button><button>SSH</button></div>
+      </div>
+      <div class="server-card">
+        <div style="font-size:28px">🖥</div>
+        <div class="info">
+          <div style="font-weight:600;margin-bottom:4px">Staging</div>
+          <div class="metric"><span class="label">CPU</span><div class="bar"><div class="fill" style="width:23%;background:var(--accent-success)"></div></div><span style="font-size:11px;width:35px;text-align:right">23%</span></div>
+          <div class="metric"><span class="label">MEM</span><div class="bar"><div class="fill" style="width:35%;background:var(--accent-success)"></div></div><span style="font-size:11px;width:35px;text-align:right">35%</span></div>
+          <div class="metric"><span class="label">DISK</span><div class="bar"><div class="fill" style="width:28%;background:var(--accent-success)"></div></div><span style="font-size:11px;width:35px;text-align:right">28%</span></div>
+        </div>
+        <div class="actions"><button>⚙ 管理</button><button>SSH</button></div>
+      </div>
+      <div class="server-card" style="border-color:rgba(248,81,73,0.3)">
+        <div style="font-size:28px">⚠️</div>
+        <div class="info">
+          <div style="font-weight:600;margin-bottom:4px">Development</div>
+          <div style="color:var(--accent-error);font-size:12px;margin-bottom:4px">⚠ 磁盘空间不足 (剩余 2.1GB)</div>
+          <div class="metric"><span class="label">CPU</span><div class="bar"><div class="fill" style="width:8%;background:var(--accent-success)"></div></div><span style="font-size:11px;width:35px;text-align:right">8%</span></div>
+        </div>
+        <div class="actions"><button>🔧 处理</button><button>SSH</button></div>
+      </div>
+    </div>
+  `,
+
+  knowledge: `
+    <div class="module-header">
+      <h2>📚 知识库</h2>
+      <div class="module-actions">
+        <button class="primary">+ 添加文档</button>
+        <button>🔄 同步</button>
+      </div>
+    </div>
+    <div class="kb-grid">
+      <div class="kb-card"><div class="emoji">📖</div><div class="title">架构文档</div><div class="meta">12 篇文档 · 上次更新 2h ago</div></div>
+      <div class="kb-card"><div class="emoji">📐</div><div class="title">API 规范</div><div class="meta">28 个接口 · 上次更新 1d ago</div></div>
+      <div class="kb-card"><div class="emoji">🔧</div><div class="title">部署指南</div><div class="meta">6 篇指南 · 上次更新 3d ago</div></div>
+      <div class="kb-card"><div class="emoji">📊</div><div class="title">监控日志</div><div class="meta">∞ 条日志 · 实时同步</div></div>
+      <div class="kb-card"><div class="emoji">🎨</div><div class="title">设计规范</div><div class="meta">8 个页面 · 上次更新 5d ago</div></div>
+      <div class="kb-card"><div class="emoji">🧪</div><div class="title">测试报告</div><div class="meta">156 项测试 · 覆盖率 92%</div></div>
+    </div>
+  `,
+
+  plugins: `
+    <div class="module-header">
+      <h2>🔌 插件管理</h2>
+      <div class="module-actions">
+        <button class="primary">🔍 搜索插件市场</button>
+        <button>⚙ 管理</button>
+      </div>
+    </div>
+    <div style="text-align:center;padding:60px 0">
+      <div style="font-size:48px;margin-bottom:16px;opacity:0.3">🧩</div>
+      <h3 style="color:var(--text-secondary);margin-bottom:8px">插件生态</h3>
+      <p style="color:var(--text-muted);font-size:12px">安装和配置你的 Agent 插件</p>
+    </div>
+  `,
+
+  settings: `
+    <div class="module-header">
+      <h2>⚙ 设置</h2>
+    </div>
+    <div class="settings-panel">
+      <div class="settings-group">
+        <h3>外观</h3>
+        <div class="setting-row">
+          <div><div class="label">暗色主题</div><div class="desc">启用暗色用户界面</div></div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="setting-row">
+          <div><div class="label">紧凑模式</div><div class="desc">减少界面间距</div></div>
+          <div class="toggle" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+      <div class="settings-group">
+        <h3>Agent</h3>
+        <div class="setting-row">
+          <div><div class="label">默认模型</div><div class="desc">选择默认使用的 AI 模型</div></div>
+          <div style="color:var(--accent-brand);cursor:pointer;font-size:12px">Qwen2.5-72B ▸</div>
+        </div>
+        <div class="setting-row">
+          <div><div class="label">自动保存</div><div class="desc">Agent 完成后自动保存产物</div></div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+      <div class="settings-group">
+        <h3>面板</h3>
+        <div class="setting-row">
+          <div><div class="label">面板默认宽度</div><div class="desc">Agent 面板初始宽度（像素）</div></div>
+          <div style="color:var(--accent-brand);cursor:pointer;font-size:12px">480px ▸</div>
+        </div>
+        <div class="setting-row">
+          <div><div class="label">折叠动画</div><div class="desc">面板折叠时显示动画</div></div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+    </div>
+  `
+};
+
+// ===== SWITCH MODULE =====
+function switchModule(module) {
+  document.getElementById('workspaceContent').innerHTML = modules[module];
+  // Update active icon
+  document.querySelectorAll('.icon-btn').forEach(btn => btn.classList.remove('active'));
+  const activeBtn = document.querySelector(`.icon-btn[data-module="${module}"]`);
+  if (activeBtn) activeBtn.classList.add('active');
+}
+
+// ===== TOGGLE PANEL =====
+let panelOpen = true;
+function togglePanel() {
+  panelOpen = !panelOpen;
+  const panel = document.getElementById('agentPanel');
+  const foldBtn = document.getElementById('foldToggle');
+  const unfoldBtn = document.getElementById('unfoldToggle');
+  const tooltip = document.getElementById('panelTooltip');
+  const toggleIcon = document.getElementById('panelToggleIcon');
+
+  if (panelOpen) {
+    panel.classList.remove('collapsed');
+    foldBtn.classList.remove('hidden');
+    tooltip.innerHTML = '收起面板<span class="shortcut">Ctrl+`</span>';
+    toggleIcon.style.opacity = '1';
+  } else {
+    panel.classList.add('collapsed');
+    setTimeout(() => { foldBtn.classList.add('hidden'); unfoldBtn.style.opacity='0.7'; unfoldBtn.style.pointerEvents='auto'; }, 200);
+    tooltip.innerHTML = '展开 Agent 面板<span class="shortcut">Ctrl+`</span>';
+    toggleIcon.style.opacity = '0';
+  }
+}
+
+// ===== TOGGLE THOUGHT =====
+function toggleThought(header) {
+  const body = header.nextElementSibling;
+  const chevron = header.querySelector('.chevron');
+  body.classList.toggle('open');
+  chevron.style.transform = body.classList.contains('open') ? 'rotate(180deg)' : '';
+}
+
+// ===== RESIZE PANEL =====
+const resizeHandle = document.getElementById('resizeHandle');
+const agentPanel = document.getElementById('agentPanel');
+const widthIndicator = document.getElementById('widthIndicator');
+let isResizing = false;
+let startX, startWidth;
+
+resizeHandle.addEventListener('mousedown', (e) => {
+  isResizing = true;
+  startX = e.clientX;
+  startWidth = agentPanel.offsetWidth;
+  resizeHandle.classList.add('dragging');
+  widthIndicator.classList.add('show');
+  widthIndicator.textContent = `${startWidth}px`;
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!isResizing) return;
+  const delta = e.clientX - startX;
+  const newWidth = startWidth - delta;
+  if (newWidth >= 300 && newWidth <= 800) {
+    agentPanel.style.width = `${newWidth}px`;
+    widthIndicator.textContent = `${newWidth}px`;
+  }
+});
+
+document.addEventListener('mouseup', () => {
+  if (isResizing) {
+    isResizing = false;
+    resizeHandle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    setTimeout(() => widthIndicator.classList.remove('show'), 1000);
+  }
+});
+
+// ===== KEYBOARD SHORTCUTS =====
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 'p') { e.preventDefault(); document.getElementById('searchInput').focus(); }
+  if (e.ctrlKey && e.key === '\\') { e.preventDefault(); togglePanel(); }
+  if (e.key === 'Escape') {
+    document.getElementById('searchInput').blur();
+  }
+});
+
+// ===== CLOCK =====
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ===== INIT =====
+switchModule('welcome');
+</script>
+</body>
+</html>

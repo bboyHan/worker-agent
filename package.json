@@ -1,0 +1,36 @@
+{
+  "name": "worker-agent",
+  "version": "2.0.0",
+  "description": "一个平台，覆盖办公 × 开发 × 运维 × 知识 - 统一工作平台",
+  "main": "dist/index.js",
+  "bin": {
+    "worker-agent": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write src/**/*.ts"
+  },
+  "keywords": [
+    "agent",
+    "platform",
+    "office",
+    "development",
+    "devops",
+    "knowledge"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "ora": "^7.0.1",
+    "chalk": "^5.3.0",
+    "figlet": "^1.7.0"
+  },
+  "devDependencies": {
+    "@types/figlet": "^1.5.8",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0"
+  }
+}
