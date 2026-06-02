@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Worker Agent v4.0 — Global Floating Chat + Split Windows</title>
+<style>
+:root{
+  --bg:#0a0a0f;--bg2:#111118;--bg3:#181824;--bg4:#1e1e2e;--bg5:#252538;
+  --tx:#cdd6f4;--tx2:#a6adc8;--txm:#585b70;
+  --brd:#313244;--brd2:#45475a;
+  --ac:#7c3aed;--aca:#6d28d9;--acs:rgba(124,58,237,.12);
+  --ok:#34d399;--wr:#fbbf24;--er:#f87171;--inf:#60a5fa;
+  --pd:#f472b6;--te:#2dd4bf;--sk:#818cf8;
+  --r:10px;--rs:6px;--shadow:0 4px 24px rgba(0,0,0,.4);
+  --split-size:4px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100vh;overflow:hidden;font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:13px;color:var(--tx);background:var(--bg)}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--brd);border-radius:3px}::-webkit-scrollbar-track{background:transparent}
+.app{display:flex;flex-direction:column;height:100vh;position:relative;overflow:hidden}
+
+/* TOP BAR */
+.tb{display:flex;align-items:center;height:44px;padding:0 12px;gap:10px;background:var(--bg2);border-bottom:1px solid var(--brd);flex-shrink:0}
+.tb-logo{font-size:15px;font-weight:700;color:var(--ac);letter-spacing:-.5px;display:flex;align-items:center;gap:6px;user-select:none}
+.tb-logo span{font-size:10px;color:var(--txm);font-weight:500;background:var(--acs);padding:1px 6px;border-radius:3px}
+.tb-search{flex:1;max-width:480px;margin:0 auto;position:relative}
+.tb-search input{width:100%;padding:8px 12px 8px 34px;background:var(--bg3);border:1px solid var(--brd);border-radius:var(--r);color:var(--tx);font-size:12.5px;outline:none;transition:all .15s}
+.tb-search input:focus{border-color:var(--ac);box-shadow:0 0 0 3px rgba(124,58,237,.12)}
+.tb-search input::placeholder{color:var(--txm)}
+.tb-search .s-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--txm);font-size:13px;pointer-events:none}
+.tb-search .s-hint{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--txm);background:var(--bg4);padding:2px 6px;border-radius:3px;border:1px solid var(--brd)}
+.tb-right{display:flex;align-items:center;gap:14px}
+.tb-stat{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--tx2);font-weight:500}
+.tb-stat .dot-3{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.tb-stat .dot-w{width:8px;height:8px;border-radius:50%;background:var(--wr)}
+.tb-time{font-size:11px;color:var(--tx2);font-variant-numeric:tabular-nums}
+
+/* MAIN */
+.ma{display:flex;flex:1;overflow:hidden}
+
+/* ICON NAV */
+.inev{width:52px;background:var(--bg2);border-right:1px solid var(--brd);display:flex;flex-direction:column;padding:6px 0;flex-shrink:0}
+.inev-btn{width:40px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:var(--rs);cursor:pointer;color:var(--txm);transition:all .12s;position:relative;border:none;background:transparent;font-size:16px;margin:1px 4px}
+.inev-btn:hover{background:var(--bg4);color:var(--tx)}
+.inev-btn.active{background:var(--acs);color:var(--ac)}
+.inev-btn.active::before{content:'';position:absolute;left:-1px;top:6px;bottom:6px;width:2.5px;background:var(--ac);border-radius:0 2px 2px 0}
+.inev-btn .tip{display:none;position:absolute;left:52px;top:50%;transform:translateY(-50%);background:var(--bg4);color:var(--tx);padding:5px 12px;border-radius:5px;font-size:11.5px;font-weight:500;white-space:nowrap;box-shadow:var(--shadow);border:1px solid var(--brd);z-index:999;pointer-events:none}
+.inev-btn:hover .tip{display:block}
+.inev-sp{flex:1}.inev-sep{height:1px;background:var(--brd);margin:4px 8px}
+
+/* LEFT PANEL */
+.lp{width:264px;background:var(--bg2);border-right:1px solid var(--brd);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+.lp-header{display:flex;align-items:center;height:38px;padding:0 10px;border-bottom:1px solid var(--brd);background:var(--bg2)}
+.lt{flex:1;font-size:11.5px;font-weight:600;color:var(--tx2)}
+.lsub{display:flex;height:28px;padding:0 8px;gap:2px;border-bottom:1px solid var(--brd)}
+.lsub-btn{padding:4px 10px;font-size:11px;color:var(--txm);cursor:pointer;border-radius:4px;transition:all .12s;border:none;background:transparent;font-weight:500;font-family:inherit}
+.lsub-btn:hover{color:var(--tx);background:var(--bg4)}
+.lsub-btn.active{color:var(--ac);background:var(--acs)}
+.lp-content{flex:1;overflow-y:auto;padding:4px 6px}
+.lp-content .section-title{font-size:10px;color:var(--txm);font-weight:600;text-transform:uppercase;letter-spacing:.5px;padding:8px 8px 4px}
+
+/* ===== SPLIT PANE CONTAINER ===== */
+.split-container{display:flex;flex:1;overflow:hidden}
+.split-container.horizontal{flex-direction:row}
+.split-container.vertical{flex-direction:column}
+.split-page{flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;position:relative}
+.split-page .page{display:none;flex:1;flex-direction:column;overflow:hidden}
+.split-page .page.active{display:flex}
+
+/* SPLIT HANDLE */
+.split-handle{
+  flex-shrink:0;background:var(--brd);cursor:col-resize;transition:background .15s;position:relative;z-index:10;
+  display:flex;align-items:center;justify-content:center;
+}
+.split-handle.vertical{width:var(--split-size);height:100%}
+.split-handle.horizontal{height:var(--split-size);width:100%}
+.split-handle:hover,.split-handle.dragging{background:var(--ac)}
+.split-handle::after{
+  content:'';width:2px;background:rgba(255,255,255,.3);border-radius:1px;transition:width .15s;opacity:0;
+}
+.split-handle:hover::after,.split-handle.dragging::after{width:4px;opacity:1}
+
+/* SNAP OVERLAY */
+.snap-overlay{
+  display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:2000;pointer-events:none;
+}
+.snap-overlay.active{display:block}
+.snap-hotspot{
+  position:absolute;border:2px dashed var(--ac);background:rgba(124,58,237,.1);border-radius:4px;
+  transition:background .15s;pointer-events:auto;cursor:pointer;
+}
+.snap-hotspot:hover{background:rgba(124,58,237,.25)}
+.snap-hotspot::after{content:attr(data-label);position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--tx2);white-space:nowrap;background:var(--bg4);padding:2px 6px;border-radius:3px;border:1px solid var(--brd)}
+.snap-grid-1x2{.snap-1x2-l{top:3%;left:1%;width:49%;height:94%}.snap-1x2-r{top:3%;left:50%;width:49%;height:94%}}
+.snap-grid-2x1{.snap-2x1-t{top:3%;left:1%;width:98%;height:47%}.snap-2x1-b{top:52%;left:1%;width:98%;height:47%}}
+.snap-grid-2x2{.snap-2x2-tl{top:3%;left:1%;width:48%;height:46%}.snap-2x2-tr{top:3%;left:51%;width:48%;height:46%}.snap-2x2-bl{top:51%;left:1%;width:48%;height:46%}.snap-2x2-br{top:51%;left:51%;width:48%;height:46%}}
+
+/* ===== FLOATING CHAT PANEL ===== */
+.float-chat{
+  position:fixed;bottom:24px;right:24px;z-index:1500;
+  transform-origin:bottom right;
+  transition:all 0.3s cubic-bezier(0.4,0,0.2,1);
+  display:flex;flex-direction:column;
+}
+
+/* State 1: Float bubble */
+.float-chat.state-1{transform:translateY(200px) scale(0.15);opacity:0;pointer-events:none}
+.float-chat.state-1 .chat-panel{display:none}
+
+/* State 2: Semi-expanded */
+.float-chat.state-2{transform:scale(0.5);opacity:0.9}
+.float-chat.state-2 .chat-panel{width:280px;height:40px;overflow:hidden;display:block}
+
+/* State 3: Expanded */
+.float-chat.state-3{transform:scale(1);opacity:1}
+.float-chat.state-3 .chat-panel{width:400px;height:500px;display:block}
+
+/* State 4: Maximised */
+.float-chat.state-4{transform:scale(1);opacity:1}
+.float-chat.state-4 .chat-panel{width:600px;height:70vh;max-height:700px;display:block}
+
+/* FAB trigger */
+.fab-trigger{
+  width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--ac),var(--aca));
+  color:white;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;
+  box-shadow:0 4px 16px rgba(124,58,237,.4);border:none;transition:all .15s;position:relative;
+}
+.fab-trigger:hover{transform:scale(1.05);box-shadow:0 6px 20px rgba(124,58,237,.5)}
+.fab-badge{position:absolute;top:-2px;right:-2px;width:16px;height:16px;background:var(--er);border-radius:50%;font-size:9px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700}
+.fab-badge.hidden{display:none}
+
+/* Chat Panel */
+.chat-panel{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden;display:none;flex-direction:column;box-shadow:var(--shadow)}
+.chat-header{display:flex;align-items:center;height:40px;padding:0 10px;gap:8px;border-bottom:1px solid var(--brd);background:var(--bg3);flex-shrink:0}
+.chat-header .title{flex:1;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}
+.chat-header .title .icon{font-size:14px}
+.chat-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--rs);cursor:pointer;color:var(--txm);transition:all .12s;border:none;background:transparent;font-size:13px}
+.chat-btn:hover{background:var(--bg4);color:var(--tx)}
+.chat-btn.pin.active{color:var(--wr)}
+.chat-body{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.chat-msg{display:flex;gap:8px}
+.chat-msg.ai .msg-avatar{background:var(--acs);color:var(--ac)}
+.chat-msg.user .msg-avatar{background:rgba(96,165,250,.12);color:var(--inf)}
+.msg-avatar{width:26px;height:26px;border-radius:var(--rs);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.msg-content{flex:1;max-width:80%}
+.msg-sender{font-size:10px;color:var(--txm);margin-bottom:2px;font-weight:600}
+.msg-bubble{font-size:12.5px;line-height:1.6;background:var(--bg3);border-radius:var(--rs);padding:8px 10px;border:1px solid var(--brd)}
+.msg-bubble pre{background:var(--bg);border-radius:3px;padding:8px;overflow-x:auto;margin:4px 0;font-size:11px;font-family:'JetBrains Mono',monospace}
+.chat-footer{padding:8px 10px;border-top:1px solid var(--brd);background:var(--bg3);flex-shrink:0}
+.chat-input-row{display:flex;gap:6px}
+.chat-input{flex:1;padding:8px 10px;background:var(--bg);border:1px solid var(--brd);border-radius:var(--rs);color:var(--tx);font-size:12px;outline:none;font-family:inherit;resize:none}
+.chat-input:focus{border-color:var(--ac)}
+.chat-send{padding:8px 14px;background:var(--ac);color:white;border:none;border-radius:var(--rs);cursor:pointer;font-size:12px;font-weight:600;transition:all .12s}
+.chat-send:hover{background:var(--aca)}
+
+/* ===== PAGES CONTENT ===== */
+/* Agent list */
+.agent-list .a-item{padding:10px 12px;border-radius:var(--rs);border:1px solid var(--brd);background:var(--bg3);margin:3px 0;cursor:pointer;transition:all .12s;display:flex;align-items:flex-start;gap:10px}
+.agent-list .a-item:hover{background:var(--bg4);border-color:var(--brd2)}
+.agent-list .a-item.active{border-color:var(--ac);background:rgba(124,58,237,.08)}
+.agent-list .a-icon{font-size:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:var(--acs);border-radius:var(--rs);flex-shrink:0}
+.agent-list .a-info{flex:1}
+.agent-list .a-name{font-size:12.5px;font-weight:600;margin-bottom:2px;display:flex;align-items:center;gap:6px}
+.agent-list .a-status{font-size:9.5px;padding:1px 5px;border-radius:3px;font-weight:600}
+.agent-list .a-status.online{background:rgba(52,211,153,.15);color:var(--ok)}
+.agent-list .a-status.idle{background:rgba(251,191,36,.15);color:var(--wr)}
+.agent-list .a-desc{font-size:10.5px;color:var(--tx2);line-height:1.4}
+.agent-list .a-model{font-size:10px;margin-top:3px;color:var(--txm)}
+
+/* Session list */
+.s-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--rs);cursor:pointer;margin:1px 0;transition:all .12s}
+.s-item:hover{background:var(--bg4)}
+.s-item.active{background:var(--acs)}
+.s-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.s-dot.ok{background:var(--ok)}.s-dot.w{background:var(--wr)}.s-dot.x{background:var(--er)}
+.s-info{flex:1;overflow:hidden}
+.s-title{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s-time{font-size:10px;color:var(--txm)}
+
+/* Monitor */
+.monitor-card{padding:12px;border-radius:var(--rs);border:1px solid var(--brd);background:var(--bg3);margin:3px 0}
+.monitor-card .mc-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.monitor-card .mc-title{font-size:12px;font-weight:600}
+.monitor-card .mc-badge{font-size:9px;padding:2px 6px;border-radius:3px;font-weight:600}
+.monitor-card .mc-badge.ok{background:rgba(52,211,153,.15);color:var(--ok)}
+.monitor-card .mc-badge.w{background:rgba(251,191,36,.15);color:var(--wr)}
+.monitor-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.monitor-stat{background:var(--bg);padding:6px;border-radius:var(--rs);text-align:center}
+.monitor-stat .ms-val{font-size:14px;font-weight:700}
+.monitor-stat .ms-label{font-size:9px;color:var(--txm);margin-top:2px}
+
+/* Knowledge */
+.k-item{padding:8px 10px;border-radius:var(--rs);border:1px solid var(--brd);background:var(--bg3);margin:3px 0;display:flex;align-items:center;gap:8px;cursor:pointer}
+.k-item:hover{background:var(--bg4)}
+.k-icon{font-size:16px;width:24px;text-align:center}
+
+/* Remote */
+.rem-card{padding:12px;border-radius:var(--rs);border:1px solid var(--brd);background:var(--bg3);margin:3px 0;display:flex;align-items:flex-start;gap:10px}
+.rem-card .rem-icon{font-size:20px}
+.rem-card .rem-info{flex:1}
+.rem-card .rem-name{font-size:12px;font-weight:600;margin-bottom:2px}
+.rem-card .rem-desc{font-size:10.5px;color:var(--tx2);margin-bottom:6px}
+.rem-card .rem-toggle{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--tx2)}
+.rem-card .rem-switch{width:32px;height:18px;background:var(--bg);border:1px solid var(--brd);border-radius:9px;cursor:pointer;position:relative;transition:all .15s}
+.rem-card .rem-switch.on{background:var(--ac);border-color:var(--ac)}
+.rem-card .rem-switch::after{content:'';width:12px;height:12px;background:white;border-radius:50%;position:absolute;top:2px;left:2px;transition:all .15s}
+.rem-card .rem-switch.on::after{left:17px}
+
+/* Workspaces */
+.ws-card{padding:12px;border-radius:var(--rs);border:1px solid var(--brd);background:var(--bg3);margin:3px 0}
+.ws-card .ws-name{font-size:12px;font-weight:600;margin-bottom:2px}
+.ws-card .ws-desc{font-size:10.5px;color:var(--tx2);margin-bottom:6px}
+.ws-card .ws-bar{height:4px;background:var(--bg);border-radius:2px;overflow:hidden}
+.ws-card .ws-fill{height:100%;background:var(--ac);border-radius:2px}
+.ws-card .ws-meta{display:flex;gap:10px;margin-top:4px}
+.ws-card .ws-meta span{font-size:10px;color:var(--txm)}
+
+/* ===== GLOBAL SEARCH ===== */
+.global-search{
+  display:none;position:fixed;top:15%;left:50%;transform:translateX(-50%);
+  width:calc(100% - 40px);max-width:600px;background:var(--bg2);border:1px solid var(--brd);
+  border-radius:var(--r);box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:3000;overflow:hidden;
+}
+.global-search.active{display:block}
+.global-search .gs-header{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--brd)}
+.global-search .gs-input{flex:1;background:transparent;border:none;color:var(--tx);font-size:14px;outline:none}
+.global-search .gs-input::placeholder{color:var(--txm)}
+.global-search .gs-results{max-height:400px;overflow-y:auto}
+.global-search .gs-item{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:all .1s}
+.global-search .gs-item:hover,.global-search .gs-item.hint{background:var(--acs)}
+.global-search .gs-icon{font-size:16px;width:20px;text-align:center;color:var(--ax)}
+.global-search .gs-label{font-size:12px;font-weight:500}
+.global-search .gs-cat{font-size:10px;color:var(--txm);margin-left:auto}
+
+/* ===== LAYOUT SNAP INDICATOR ===== */
+.layout-indicator{
+  display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:1900;pointer-events:none;
+}
+.layout-indicator.active{display:flex;flex-direction:column;padding:10px;gap:10px}
+.layout-indicator .li-cell{
+  border:2px dashed var(--ac);background:rgba(124,58,237,.08);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;color:var(--txm);font-size:14px;
+  font-weight:600;pointer-events:auto;cursor:pointer;transition:all .15s;
+}
+.layout-indicator .li-cell:hover{background:rgba(124,58,237,.2)}
+.layout-indicator.grid-2x2{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+.layout-indicator.grid-1x2{display:flex;gap:10px}
+.layout-indicator.grid-2x1{flex-direction:column}
+
+/* ===== ANIMATIONS ===== */
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg-in{animation:msgIn .2s ease}
+
+@keyframes snapPop{0%{opacity:0;transform:scale(.9)}100%{opacity:1;transform:scale(1)}}
+.snap-active{animation:snapPop .2s ease}
+
+/* ===== TOOLTIP ===== */
+.tooltip{position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);background:var(--bg4);color:var(--tx);padding:3px 8px;border-radius:4px;font-size:10px;white-space:nowrap;box-shadow:var(--shadow);border:1px solid var(--brd);pointer-events:none;opacity:0;transition:opacity .12s}
+.inev-btn:hover .tooltip{opacity:1}
+
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <!-- TOP BAR -->
+  <div class="tb">
+    <div class="tb-logo">⚙️ Worker Agent <span>v4.0</span></div>
+    <div class="tb-search">
+      <span class="s-icon">🔍</span>
+      <input type="text" class="gs-input" placeholder="搜索 Agent、会话、文件..." id="globalSearchInput" onclick="toggleGlobalSearch()">
+      <span class="s-hint">⌘K</span>
+    </div>
+    <div class="tb-right">
+      <div class="tb-stat"><span class="dot-3"></span><span>8 在线</span></div>
+      <div class="tb-stat"><span class="dot-w"></span><span>3 队列</span></div>
+      <div class="tb-time" id="tbTime"></div>
+    </div>
+  </div>
+
+  <!-- MAIN AREA -->
+  <div class="ma">
+    <!-- ICON NAV -->
+    <div class="inev">
+      <button class="inev-btn active" data-page="agents" onclick="switchPage('agents')"><span>🤖</span><span class="tip">Agent管理</span></button>
+      <button class="inev-btn" data-page="sessions" onclick="switchPage('sessions')"><span>💬</span><span class="tip">会话管理</span></button>
+      <button class="inev-btn" data-page="server" onclick="switchPage('server')"><span>🖥️</span><span class="tip">服务器监控</span></button>
+      <div class="inev-sep"></div>
+      <button class="inev-btn" data-page="workspace" onclick="switchPage('workspace')"><span>📊</span><span class="tip">工作空间</span></button>
+      <button class="inev-btn" data-page="knowledge" onclick="switchPage('knowledge')"><span>📚</span><span class="tip">知识库</span></button>
+      <button class="inev-btn" data-page="remote" onclick="switchPage('remote')"><span>📱</span><span class="tip">远程控制</span></button>
+      <div class="inev-sp"></div>
+      <button class="inev-btn" data-page="settings" onclick="switchPage('settings')"><span>⚙️</span><span class="tip">设置</span></button>
+    </div>
+
+    <!-- SPLIT PANE CONTAINER -->
+    <div class="split-container horizontal" id="splitContainer">
+      <!-- LEFT: Main Panel -->
+      <div class="split-page" id="splitLeft" style="flex:1;min-width:200px">
+        <div class="lp">
+          <div class="lp-header"><span class="lt" id="lpTitle">Agent 管理</span><button class="chat-btn" onclick="toggleGlobalSearch()">🔍</button></div>
+          <div class="lsub">
+            <button class="lsub-btn active" onclick="switchLSub(this,'online')">全部</button>
+            <button class="lsub-btn" onclick="switchLSub(this,'online')">在线</button>
+            <button class="lsub-btn" onclick="switchLSub(this,'idle')">空闲</button>
+          </div>
+          <div class="lp-content">
+            <div class="section-title">AGENT</div>
+            <div class="agent-list" id="agentList">
+              <div class="a-item active" onclick="selectAgent(this,'code-assistant')"><div class="a-icon">🤖</div><div class="a-info"><div class="a-name">Code Assistant<span class="a-status online">在线</span></div><div class="a-desc">AI 编码助手，支持自动补全、代码审查、bug 检测</div><div class="a-model">GPT-4 · 温度 0.7</div></div></div>
+              <div class="a-item" onclick="selectAgent(this,'agent-planner')"><div class="a-icon">📋</div><div class="a-info"><div class="a-name">Agent Planner<span class="a-status online">在线</span></div><div class="a-desc">自动任务规划，将复杂任务拆分为可执行步骤</div><div class="a-model">Claude 3.5 · 温度 0.5</div></div></div>
+              <div class="a-item" onclick="selectAgent(this,'server-monitor')"><div class="a-icon">🛡️</div><div class="a-info"><div class="a-name">Server Monitor<span class="a-status online">在线</span></div><div class="a-desc">服务器健康监控，自动告警与修复建议</div><div class="a-model">GPT-4 · 温度 0.3</div></div></div>
+              <div class="a-item" onclick="selectAgent(this='docs-helper')"><div class="a-icon">📝</div><div class="a-info"><div class="a-name">Docs Helper<span class="a-status idle">空闲</span></div><div class="a-desc">文档生成与翻译，支持 20+ 语言</div><div class="a-model">Gemini Ultra · 温度 0.8</div></div></div>
+              <div class="a-item" onclick="selectAgent(this,'data-analyst')"><div class="a-icon">📊</div><div class="a-info"><div class="a-name">Data Analyst<span class="a-status idle">空闲</span></div><div class="a-desc">数据分析与可视化，支持 CSV/SQL/Excel</div><div class="a-model">Claude 3.5 · 温度 0.6</div></div></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="ca" style="flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative">
+          <div class="page active" id="page-agents">
+            <div class="chat-h"><span style="font-size:14px;font-weight:600">Agent Console</span></div>
+            <div class="chat-body" id="mainChat">
+              <div class="chat-msg user msg-in"><div class="msg-avatar">🧑</div><div class="msg-content"><div class="msg-sender">你</div><div class="msg-bubble">帮我分析一下当前服务器的资源使用情况</div></div></div>
+              <div class="chat-msg ai msg-in"><div class="msg-avatar">🤖</div><div class="msg-content"><div class="msg-sender">Server Monitor</div><div class="msg-bubble">当前服务器状态：<pre>CPU: 67% 内存: 72% 磁盘: 45% 网络: 正常</pre>⚠️ 内存使用率偏高，建议清理缓存
+                <div class="action-card"><div class="action-check">✅</div><div class="action-content"><div class="action-title">清理服务器缓存</div><div class="action-meta">预计释放 12GB 内存，0 风险</div><div class="action-btns"><button class="action-btn primary" onclick="alert('缓存已清理！')">立即清理</button><button class="action-btn">稍后</button></div></div></div></div></div></div>
+            </div>
+          </div>
+          <div class="page" id="page-sessions">
+            <div class="chat-h"><span style="font-size:14px;font-weight:600">会话列表</span></div>
+            <div class="lp-content">
+              <div class="sl-item active"><div class="s-dot ok"></div><div class="s-info"><div class="s-title">服务器分析会话</div><div class="s-time">2 分钟前 · Server Monitor</div></div></div>
+              <div class="sl-item"><div class="s-dot w"></div><div class="s-info"><div class="s-title">代码审查建议</div><div class="s-time">15 分钟前 · Code Assistant</div></div></div>
+              <div class="sl-item"><div class="s-dot ok"></div><div class="s-info"><div class="s-title">自动任务规划</div><div class="s-time">1 小时前 · Agent Planner</div></div></div>
+              <div class="sl-item"><div class="s-dot x"></div><div class="s-info"><div class="s-title">文档生成</div><div class="s-time">3 小时前 · Docs Helper</div></div></div>
+            </div>
+          </div>
+          <div class="page" id="page-server">
+            <div class="chat-h"><span style="font-size:14px;font-weight:600">服务器监控</span></div>
+            <div class="lp-content">
+              <div class="monitor-card"><div class="mc-h"><div class="mc-title">服务器 01</div><div class="mc-badge ok">运行中</div></div><div class="monitor-stats"><div class="monitor-stat"><div class="ms-val">67%</div><div class="ms-label">CPU</div></div><div class="monitor-stat"><div class="ms-val">72%</div><div class="ms-label">内存</div></div><div class="monitor-stat"><div class="ms-val">45%</div><div class="ms-label">磁盘</div></div><div class="monitor-stat"><div class="ms-val">正常</div><div class="ms-label">网络</div></div></div></div>
+              <div class="monitor-card"><div class="mc-h"><div class="mc-title">服务器 02</div><div class="mc-badge w">高负载</div></div><div class="monitor-stats"><div class="monitor-stat"><div class="ms-val">91%</div><div class="ms-label">CPU</div></div><div class="monitor-stat"><div class="ms-val">85%</div><div class="ms-label">内存</div></div><div class="monitor-stat"><div class="ms-val">67%</div><div class="ms-label">磁盘</div></div><div class="monitor-stat"><div class="ms-val">警告</div><div class="ms-label">网络</div></div></div></div>
+            </div>
+          </div>
+          <div class="page" id="page-workspace">
+            <div class="chat-h"><span style="font-size:14px;font-weight:600">工作空间</span></div>
+            <div class="lp-content">
+              <div class="ws-card"><div class="ws-name">📦 Project Alpha</div><div class="ws-desc">微服务架构，12 个 Agent 协同</div><div class="ws-bar"><div class="ws-fill" style="width:72%"></div></div><div class="ws-meta"><span>进度 72%</span><span>3 任务</span></div></div>
+              <div class="ws-card"><div class="ws-name">📦 Project Beta</div><div class="ws-desc">数据分析管道</div><div class="ws-bar"><div class="ws-fill" style="width:35%"></div></div><div class="ws-meta"><span>进度 35%</span><span>7 任务</span></div></div>
+            </div>
+          </div>
+          <div class="page" id="page-knowledge">
+            <div class="chat-h"><span style="font-size:14px;font-weight:600">知识库</span></div>
+            <div class="lp-content">
+              <div class="kp-item"><div class="kp-icon">📄</div><div class="kp-name">API 文档</div><div class="kp-count">156 文件</div></div>
+              <div class="kp-item"><div class="kp-icon">💡</div><div class="kp-name">最佳实践</div><div class="kp-count">89 文件</div></div>
+              <div class="kp-item"><div class="kp-icon">🔧</div><div class="kp-name">运维手册</div><div class="kp-count">42 文件</div></div>
+              <div class="kp-item"><div class="kp-icon">📊</div><div class="kp-name">数据分析</div><div class="kp-count">67 文件</div></div>
+            </div>
+          </div>
+          <div class="page" id="page-remote">
+            <div class="chat-h"><span style="font-size:14px;font-weight:600">远程控制</span></div>
+            <div class="lp-content">
+              <div class="rem-card"><div class="rem-icon">📱</div><div class="rem-info"><div class="rem-name">飞书远程控制</div><div class="rem-desc">通过飞书指令控制 Agent 任务</div><div class="rem-toggle"><div class="rem-switch on"></div>已连接</div></div></div>
+              <div class="rem-card"><div class="rem-icon">💬</div><div class="rem-info"><div class="rem-name">企微远程控制</div><div class="rem-desc">通过企微机器人控制 Agent</div><div class="rem-toggle"><div class="rem-switch"></div>未连接</div></div></div>
+              <div class="rem-card"><div class="rem-icon">📲</div><div class="rem-info"><div class="rem-name">微信远程控制</div><div class="rem-desc">通过微信公众号控制 Agent</div><div class="rem-toggle"><div class="rem-switch"></div>未连接</div></div></div>
+            </div>
+          </div>
+          <div class="page" id="page-settings">
+            <div class="chat-h"><span style="font-size:14px;font-weight:600">设置</span></div>
+            <div class="lp-content">
+              <div class="section-title">系统配置</div>
+              <div class="kp-item"><div class="kp-icon">🎨</div><div class="kp-name">主题设置</div></div>
+              <div class="kp-item"><div class="kp-icon">⌨️</div><div class="kp-name">快捷键配置</div></div>
+              <div class="kp-item"><div class="kp-icon">🌐</div><div class="kp-name">网络设置</div></div>
+              <div class="section-title">快捷键</div>
+              <div class="kp-item"><div class="kp-icon">⌘+K</div><div class="kp-name">全局搜索</div></div>
+              <div class="kp-item"><div class="kp-icon">⌘+Shift+K</div><div class="kp-name">浮动 Chat</div></div>
+              <div class="kp-item"><div class="kp-icon">⌘+D</div><div class="kp-name">垂直分割</div></div>
+              <div class="kp-item"><div class="kp-icon">⌘+Shift+D</div><div class="kp-name">水平分割</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SPLIT HANDLE -->
+      <div class="split-handle vertical" id="mainSplitHandle"></div>
+      
+      <!-- RIGHT: Chat Panel (always present for split demo) -->
+      <div class="split-page" id="splitRight" style="flex:0 0 350px;min-width:200px">
+        <div class="lp" style="border:none">
+          <div class="lp-header"><span class="lt">Chat 面板</span><button class="chat-btn" onclick="toggleFloatChat()">➕</button></div>
+          <div class="chat-body" id="rightChat">
+            <div class="chat-msg ai msg-in"><div class="msg-avatar">🤖</div><div class="msg-content"><div class="msg-sender">Agent Planner</div><div class="msg-bubble">任务已规划，包含 5 个子任务，可以执行吗？</div></div></div>
+          </div>
+          <div class="chat-footer">
+            <div class="chat-input-row">
+              <input class="chat-input" placeholder="输入消息..." id="rightChatInput">
+              <button class="chat-send" onclick="sendMsg('right')">▶</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FLOAT CHAT PANEL -->
+  <div class="float-chat state-3" id="floatChat" draggable="true">
+    <div class="chat-panel">
+      <div class="chat-header">
+        <div class="title"><span class="icon">🤖</span> Agent Chat</div>
+        <button class="chat-btn" onclick="changeChatState(4)" title="最大化">⬆</button>
+        <button class="chat-btn" onclick="changeChatState(2)" title="最小化">⬇</button>
+        <button class="chat-btn" onclick="changeChatState(1)" title="关闭">✕</button>
+        <button class="chat-btn pin" onclick="togglePin(this)" title="固定">📌</button>
+      </div>
+      <div class="chat-body" id="floatChatBody">
+        <div class="chat-msg ai msg-in"><div class="msg-avatar">🤖</div><div class="msg-content"><div class="msg-sender">Code Assistant</div><div class="msg-bubble">欢迎使用 Worker Agent v4.0！我随时为你服务。👋</div></div></div>
+        <div class="chat-msg user msg-in"><div class="msg-avatar">🧑</div><div class="msg-content"><div class="msg-sender">你</div><div class="msg-bubble">帮我分析一下当前服务器的资源使用情况</div></div></div>
+        <div class="chat-msg ai msg-in"><div class="msg-avatar">🤖</div><div class="msg-content"><div class="msg-sender">Server Monitor</div><div class="msg-bubble">当前服务器状态：<pre>CPU: 67% 内存: 72% 磁盘: 45%</pre>⚠️ 内存使用率偏高</div></div></div>
+      </div>
+      <div class="chat-footer">
+        <div class="chat-input-row">
+          <input class="chat-input" placeholder="输入消息..." id="floatChatInput">
+          <button class="chat-send" onclick="sendMsg('float')">▶</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAB Trigger -->
+  <button class="fab-trigger" id="fabTrigger" onclick="toggleFloatChat()" style="display:none">
+    <span>🤖</span>
+    <div class="fab-badge hidden" id="fabBadge">3</div>
+  </button>
+
+  <!-- GLOBAL SEARCH -->
+  <div class="global-search" id="globalSearch">
+    <div class="gs-header">
+      <span>🔍</span>
+      <input type="text" class="gs-input" placeholder="搜索 Agent、会话、文件..." id="gsInput">
+      <button class="chat-btn" onclick="toggleGlobalSearch()">✕</button>
+    </div>
+    <div class="gs-results">
+      <div class="gs-item"><div class="gs-icon">🤖</div><div class="gs-label">Code Assistant</div><div class="gs-cat">Agent</div></div>
+      <div class="gs-item"><div class="gs-icon">📋</div><div class="gs-label">Agent Planner</div><div class="gs-cat">Agent</div></div>
+      <div class="gs-item"><div class="gs-icon">📄</div><div class="gs-label">API 文档</div><div class="gs-cat">知识库</div></div>
+      <div class="gs-item"><div class="gs-icon">💬</div><div class="gs-label">会话列表</div><div class="gs-cat">功能</div></div>
+      <div class="gs-item"><div class="gs-icon">⚙️</div><div class="gs-label">设置</div><div class="gs-cat">系统</div></div>
+    </div>
+  </div>
+
+  <!-- SNAP OVERLAY -->
+  <div class="snap-overlay grid-1x2" id="snapOverlay">
+    <div class="snap-hotspot snap-1x2-l" data-label="左侧 50%" onclick="handleSnap('left')"></div>
+    <div class="snap-hotspot snap-1x2-r" data-label="右侧 50%" onclick="handleSnap('right')"></div>
+  </div>
+
+  <!-- LAYOUT INDICATOR -->
+  <div class="layout-indicator grid-2x2" id="layoutIndicator">
+    <div class="li-cell" onclick="handleLayout2x2('tl')">↖ 左上</div>
+    <div class="li-cell" onclick="handleLayout2x2('tr')">↗ 右上</div>
+    <div class="li-cell" onclick="handleLayout2x2('bl')">↙ 左下</div>
+    <div class="li-cell" onclick="handleLayout2x2('br')">↘ 右下</div>
+  </div>
+</div>
+
+<script>
+// ===== GLOBAL STATE =====
+let floatChatState = 3;
+let chatPinned = false;
+let currentSplitRatio = 1;
+
+// ===== NAVIGATION =====
+function switchPage(page){
+  document.querySelectorAll('.inev-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`.inev-btn[data-page="${page}"]`)?.classList.add('active');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+page)?.classList.add('active');
+}
+
+function switchLSub(btn, type){
+  btn.parentElement.querySelectorAll('.lsub-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function selectAgent(el, name){
+  document.querySelectorAll('.a-item').forEach(a=>a.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ===== FLOAT CHAT =====
+function toggleFloatChat(){
+  floatChatState = floatChatState >= 3 ? 1 : floatChatState + 1;
+  if(floatChatState === 1){
+    document.getElementById('fabTrigger').style.display = 'flex';
+  }
+  if(floatChatState >= 2){
+    document.getElementById('fabTrigger').style.display = 'none';
+  }
+  updateFloatChatUI();
+}
+
+function changeChatState(state){
+  floatChatState = state;
+  if(floatChatState === 1){
+    document.getElementById('fabTrigger').style.display = 'flex';
+  }
+  if(floatChatState >= 2){
+    document.getElementById('fabTrigger').style.display = 'none';
+  }
+  updateFloatChatUI();
+}
+
+function updateFloatChatUI(){
+  const fc = document.getElementById('floatChat');
+  fc.className = 'float-chat state-'+floatChatState;
+}
+
+function togglePin(btn){
+  chatPinned = !chatPinned;
+  btn.classList.toggle('active');
+  alert(chatPinned ? 'Chat 已固定' : 'Chat 已取消固定');
+}
+
+// ===== FLOAT CHAT DRAG =====
+let isDragging = false, dragOffset = {x:0,y:0};
+const floatChat = document.getElementById('floatChat');
+
+floatChat.addEventListener('mousedown',(e)=>{
+  if(e.target.closest('.chat-btn') || e.target.closest('.chat-input') || e.target.closest('.chat-send')) return;
+  isDragging = true;
+  dragOffset.x = e.clientX - floatChat.offsetLeft;
+  dragOffset.y = e.clientY - floatChat.offsetTop;
+  floatChat.style.transition = 'none';
+  e.preventDefault();
+});
+
+document.addEventListener('mousemove',(e)=>{
+  if(!isDragging) return;
+  let x = e.clientX - dragOffset.x;
+  let y = e.clientY - dragOffset.y;
+  // Clamp
+  const maxX = window.innerWidth - 60;
+  const maxY = window.innerHeight - 60;
+  floatChat.style.left = Math.max(10, Math.min(maxX, x)) + 'px';
+  floatChat.style.bottom = 'auto';
+  floatChat.style.right = 'auto';
+  floatChat.style.top = Math.max(10, Math.min(maxY, y)) + 'px';
+});
+
+document.addEventListener('mouseup',()=>{
+  if(isDragging){
+    isDragging = false;
+    floatChat.style.transition = 'all 0.3s cubic-bezier(0.4,0,0.2,1)';
+  }
+});
+
+// ===== SPLIT PANE DRAG =====
+const handle = document.getElementById('mainSplitHandle');
+let isSplitting = false;
+
+handle.addEventListener('mousedown',(e)=>{
+  isSplitting = true;
+  handle.classList.add('dragging');
+  e.preventDefault();
+  document.body.style.cursor = 'col-resize';
+});
+
+document.addEventListener('mousemove',(e)=>{
+  if(!isSplitting) return;
+  const container = document.getElementById('splitContainer');
+  const left = document.getElementById('splitLeft');
+  const right = document.getElementById('splitRight');
+  const rect = container.getBoundingClientRect();
+  const ratio = (e.clientX - rect.left) / rect.width;
+  const clamped = Math.max(0.15, Math.min(0.85, ratio));
+  
+  left.style.flex = `0 0 ${clamped * rect.width}px`;
+  right.style.flex = `0 0 ${(1-clamped) * rect.width}px`;
+});
+
+document.addEventListener('mouseup',()=>{
+  if(isSplitting){
+    isSplitting = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+  }
+});
+
+// ===== GLOBAL SEARCH =====
+function toggleGlobalSearch(){
+  const gs = document.getElementById('globalSearch');
+  gs.classList.toggle('active');
+  if(gs.classList.contains('active')){
+    setTimeout(()=>document.getElementById('gsInput').focus(),100);
+  }
+}
+
+// ===== KEYBOARD SHORTCUTS =====
+document.addEventListener('keydown',(e)=>{
+  // ⌘+K or Ctrl+K → Global Search
+  if((e.metaKey || e.ctrlKey) && e.key === 'k'){
+    e.preventDefault();
+    toggleGlobalSearch();
+  }
+  // ⌘+Shift+K or Ctrl+Shift+K → Toggle Float Chat
+  if((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'K'){
+    e.preventDefault();
+    toggleFloatChat();
+  }
+  // ⌘+D or Ctrl+D → Vertical split
+  if((e.metaKey || e.ctrlKey) && e.key === 'd' && !e.shiftKey){
+    e.preventDefault();
+    alert('垂直分割已切换');
+  }
+  // ⌘+Shift+D or Ctrl+Shift+D → Horizontal split
+  if((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'D'){
+    e.preventDefault();
+    alert('水平分割已切换');
+  }
+  // Escape → Close search/panel
+  if(e.key === 'Escape'){
+    document.getElementById('globalSearch')?.classList.remove('active');
+    if(floatChatState >= 2) changeChatState(floatChatState-1);
+  }
+});
+
+// ===== SNAP LAYOUT =====
+document.getElementById('snapOverlay').addEventListener('mousedown',(e)=>{
+  if(e.target.classList.contains('snap-hotspot')){
+    e.target.classList.add('snap-active');
+    setTimeout(()=>e.target.classList.remove('snap-active'),200);
+  }
+});
+
+function handleSnap(side){
+  alert('拖拽窗口到 '+side+' 侧执行分割');
+}
+
+function handleLayout2x2(pos){
+  alert('拖拽窗口到 '+pos+' 区域执行 2x2 拆分');
+}
+
+// ===== SEND MESSAGE =====
+function sendMsg(target){
+  const input = target === 'right' ? document.getElementById('rightChatInput') : document.getElementById('floatChatInput');
+  if(!input || !input.value.trim()) return;
+  
+  const body = document.getElementById(target === 'right' ? 'rightChat' : 'floatChatBody');
+  const newMsg = document.createElement('div');
+  newMsg.className = 'chat-msg user msg-in';
+  newMsg.innerHTML = `<div class="msg-avatar">🧑</div><div class="msg-content"><div class="msg-sender">你</div><div class="msg-bubble">${input.value}</div></div>`;
+  body.appendChild(newMsg);
+  
+  // Simulate reply
+  setTimeout(()=>{
+    const reply = document.createElement('div');
+    reply.className = 'chat-msg ai msg-in';
+    reply.innerHTML = `<div class="msg-avatar">🤖</div><div class="msg-content"><div class="msg-sender">AI</div><div class="msg-bubble">收到！让我来处理这个问题...</div></div>`;
+    body.appendChild(reply);
+    body.scrollTop = body.scrollHeight;
+  }, 500);
+  
+  input.value = '';
+}
+
+// ===== TIME =====
+function updateTime(){
+  const now = new Date();
+  document.getElementById('tbTime').textContent = now.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+}
+setInterval(updateTime, 1000);
+updateTime();
+
+</script>
+</body>
+</html>
