@@ -1,107 +1,198 @@
-# DesignFlow CLI v2.0 — Final Product Design Document
+# Worker Agent · 一页纸执行摘要
 
-## One-liner
-One CLI tool to go from "I want X" to "X works" — no browser, no IDE, no $100/mo.
+## 产品定位
+**一个平台，覆盖办公×开发×运维×知识**——像操作系统一样简单，像工作流引擎一样强大。
+永远免费，本地运行，隐私安全由你掌控。
 
-**Design → Code → Preview → Deploy** — all in one tool, all running locally, completely free.
-
----
-
-## 1. Core Value Proposition
-
-| Dimension | Competitors (Cursor, v0.dev, etc.) | DesignFlow CLI |
-|------|-----|------|
-| **Full pipeline** | Fragmented across tools | ✅ Design → Code → Deploy |
-| **Cost** | Free trial / $10–$100/mo | Forever free, local |
-| **Privacy** | Cloud inference | Fully local, offline-ready |
-| **Visual lock** | Tokens overwritten by AI | ✅ Never lost |
-| **Multi-agent** | Single model context | ✅ 5 specialized agents |
-| **Deploy** | Limited or manual | ✅ Docker / Vercel / Netlify |
-| **Open-source** | ❌ | ✅✅✅ |
+## 一句话价值
+> "打开Worker Agent，从此刻起你的电脑就是一个统一的操作系统——管理任务、写代码、部署服务、维护知识库，所有这一切还能通过飞书/企微/微信从手机远程操控。"
 
 ---
 
-## 2. Agent System
+## 核心竞争力矩阵
 
-### 2.1 Five Specialized Agents
+| 维度 | Raycast | Docker Desktop | n8n | VS Code | Notion | Cursor | **Worker Agent** |
+|------|--|---------------|-----|---------|--------|--------|--|------|
+| **办公** | | | | | | | **✅** |
+| · 任务看板 | | | | | | | ✅ |
+| · IM远程控制 | | | | | | | ✅✅✅ |
+| · 日程日历 | | | | | | | ✅ |
+| **开发** | | | | | | | **✅** |
+| · 代码编辑 | | | | | | | ✅✅✅ |
+| · Agent控制台 | | | | | | | ✅✅✅ |
+| · 工作流编辑器 | | | | | | | ✅✅✅ |
+| · AI辅助编程 | | | | | | | ✅✅✅ |
+| **运维** | | | | | | | **✅** |
+| · 服务器管理 | | | | | | | ✅✅✅ |
+| · 容器编排 | | | | | | | ✅✅✅ |
+| · 监控告警 | | | | | | | ✅✅✅ |
+| **知识** | | | | | | | **✅** |
+| · 知识库 | | | | | | | ✅✅✅ |
+| · 文件管理 | | | | | | | ✅✅✅ |
+| · 全局搜索 | | | | | | | ✅✅✅ |
+| **技术特性** | | | | | | | |
+| · 多端适配 | | | | ❌ | ✅ | ❌ | ✅✅✅ |
+| · 统一搜索 | | | | ❌ | ✅ | ❌ | ✅✅✅ |
+| · 永久免费/本地 | 基础 | 免费 | 开源 | 免费 | 基础 | ❌ | ✅✅✅ |
+| · 键盘优先 | ✅ | ❌ | ❌ | ✅ | ❌ | ⚠️ | ✅✅✅ |
+
+---
+
+## 核心设计原则
+
+1. **默认极简**：打开第一眼只有"搜索框 + 最近任务"，像新Mac桌面
+2. **渐进复杂度**：每层操作只展示当前步骤需要的东西
+3. **键盘优先**：80%功能键盘完成
+4. **多端统一**：同一套操作，任何设备同等流畅
+5. **远程掌控**：走到哪都能手机控制Agent
+6. **本地第一**：数据/AI推理都本地
+7. **模块可卸载**：不需要？关掉即止
+
+---
+
+## 五大核心产品形态
 
 ```
-🧠 Scheduler Agent (Global orchestration)
-├── 🎨 Designer Agent (Penpot integration, tokens, visual lock)
-├── 💻 Code Agent (Code generation, review, fix)
-├── 🔧 Test Agent (Compiler, test runner)
-└── 🚀 Deploy Agent (Docker, deploy, services)
-```
-
-### 2.2 Agent Communication
-
-| Direction | Mechanism | Purpose |
-|------|------|------|
-| Scheduler → Agent | MCP task dispatch | Task dispatch |
-| Agent → Scheduler | WebSocket push | Status updates every 2s |
-| Agent → Agent | WebSocket push | Task status |
-| Agent → Scheduler | WebSocket push | Error alerts |
-
-### 2.3 Agent Status Machine
-
-```
-[ready] → [busy] → [ready] → [busy] ...
-  │          │
-  │ error    │ error
-  v          v
-[error] → [ready] (auto-retry)
+┌─── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────┐
+│                       WORKER AGENT                      │
+├─── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────┤
+│                                                             │
+│  🖥️ Web桌面端              📱 H5/H5移动端              │
+│  ──── ──── ──── ────          ──── ──── ────           │
+│  全功能                    移动端网页版                    │
+│  ·所有模块                  ·核心功能                      │
+│  ·快捷键支持                 ·手势操作                     │
+│  ·深色/亮色主题              ·简化列表                     │
+│  ·文件树/代码编辑器/         ·简化Agent状态                │
+│    工作流画布                  ·审批/搜索/查看              │
+│                                                             │
+│  📱 小程序                  📱 App                    │
+│  ──── ──── ──── ────          ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────          │
+│  快捷入口                      独立App                       │
+│  ·审批中心                     ·核心功能                     │
+│  ·消息通知                     ·离线模式                     │
+│  ·快捷搜索                     ·安全沙盒                     │
+│  ·Agent状态                     ·推送                         │
+├─── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────┤
+│  统一底层：Agent引擎 + 通信总线 + 搜索 + 文件 + AI + IM     │
+└─── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────┘
 ```
 
 ---
 
-## 3. Product Roadmap
+## 产品功能全景
 
-| Phase | Time | Milestone / Acceptance Criteria |
-|-------|------|-------|
-| **0. Foundation** | Wk 1–2 | `designflow start` launches Scheduler + Designer; tokens generated |
-| **1. Visual Lock + Plan** | Wk 3–6 | Token change blocked by design system; user confirms multi-tier plan |
-| **2. Backend + Full-stack** | Wk 7–8 | FastAPI + SQLite working; Test agent catches errors; rollback via snapshots |
-| **3. Deploy** | Wk 9–10 | `deploy docker` builds & runs; `deploy vercel` pushes |
-| **4. Docs + Release** | Wk 11–12 | `npm publish`; complete tutorial; 10+ real-world examples |
+### 办公维度（100%覆盖）
+| 功能 | 说明 | 竞争力 |
+|------|------|--------|
+| 任务看板 | Linear级看板：拖拽+队列+优先级 | ✅ 完全覆盖 |
+| IM远程控制 | 飞书/企微/微信/钉钉指令控制Agent | ✅ 独家 |
+| 日程日历 | 日历+提醒+任务关联 | ✅ 完全覆盖 |
+| 邮件管理 | 邮件收件箱+AI处理 | ✅ 完全覆盖 |
+| 在线文档 | 多人协作文档 | ✅ 完全覆盖 |
+
+### 开发维度（100%覆盖）
+| 功能 | 说明 | 竞争力 |
+|------|------|--------|
+| 代码编辑器 | VS Code级编辑器 | ✅ 完全覆盖 |
+| Agent控制台 | 8+专用Agent集中管理 | ✅ 独家 |
+| 工作流引擎 | n8n级可视化拖拽工作流 | ✅ 完全覆盖 |
+| AI辅助编程 | 本地AI补全/审查/生成 | ✅ 完全覆盖 |
+| Git集成 | 完整Git操作 | ✅ 完全覆盖 |
+
+### 运维维度（100%覆盖）
+| 功能 | 说明 | 竞争力 |
+|------|------|--------|
+| 服务器管理 | 多服务器监控+终端 | ✅ 完全覆盖 |
+| 容器编排 | Docker/K8s管理 | ✅ 完全覆盖 |
+| 监控告警 | 实时+告警+通知 | ✅ 完全覆盖 |
+| 部署管理 | 一键部署流水线 | ✅ 完全覆盖 |
+
+### 知识维度（100%覆盖）
+| 功能 | 说明 | 竞争力 |
+|------|------|--------|
+| 知识库 | 文档+代码片段+书签 | ✅ 完全覆盖 |
+| 文件管理 | VS Code式文件浏览器 | ✅ 完全覆盖 |
+| 全局搜索 | 跨所有维度统一搜索 | ✅ 完全覆盖 |
+| 代码库 | 多仓库管理 | ✅ 完全覆盖 |
 
 ---
 
-## 4. Security
+## 技术架构
 
-| Aspect | Strategy |
-|--------|------|
-| **Token storage** | Local `~/.designflow/tokens.json` |
-| **Code generation** | No cloud transmission; local model only |
-| **Deploy** | User-specified endpoints; no telemetry |
-| **Network** | All model inference via local Ollama; zero external calls during generation |
+### 四层架构
+```
+┌──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────┐
+│                    WORKER AGENT                        │
+├────── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────┤
+│   Application Layer: Web H5/小程序/App | 统一API        │
+│   Agent Layer: 调度/任务/文件/代码/测试/部署/知识库/设计  │
+│   Integration Layer: IM | 日历 | 邮件 | Git | Docker | AI  │
+│   Infrastructure Layer: SQLite | IndexedDB | WebSocket  │
+└────── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────┘
+```
 
----
-
-## 5. Tech Stack Selection
-
-| Layer | Selection | Why |
+### Agent系统（8+专用Agent）
+| Agent | 职责 | 状态 |
 |-------|------|------|
-| **CLI UI** | Blessed-contrib | Industry-standard TUI; real-time updates |
-| **Agent framework** | LangGraph | Persistent state + subgraphs + LangSmith debugging |
-| **AI backend** | Qwen2.5 / Llama-3.1 + Ollama | Best Chinese/English open-source; local inference |
-| **Backend** | FastAPI + SQLite | Fastest Python framework; zero-infra database |
-| **Frontend** | Vite + React | Fastest HMR; best ecosystem |
-| **Design** | Penpot | Fully open-source (Figma is proprietary) |
-| **Deploy** | Docker Compose / Vercel | Standard container & serverless |
-| **Persistence** | Git-backed snapshots | Every phase = snapshot; zero-config rollback |
+| 🧠 Schedule | 全局任务调度、状态管理 | 运行 |
+| 📋 Task | 用户任务管理、队列 | 运行 |
+| 📁 File | 文件管理系统、搜索 | 运行 |
+| 💻 Code | 代码生成、审查、库管理 | 待命 |
+| 🔧 Test | 测试用例生成、自动化测试 | 待命 |
+| 🚀 Deploy | Docker/K8s管理、部署 | 待命 |
+| 📚 Knowledge | 知识库管理、AI问答 | 待命 |
+| 🎨 Design | 原型设计、画布编辑 | 待命 |
 
 ---
 
-## 6. Summary
+## IM远程控制体验
 
-| Attribute | Value |
-|-----------|-------|
-| **Product** | DesignFlow CLI v2.0 |
-| **Pipeline** | Design → Code → Preview → Deploy |
-| **Command** | `designflow start` |
-| **Cost** | Free, local, open-source |
-| **Agents** | 5 specialized agents |
+```
+用户在飞书/企微/微信发送指令 → Agent解析 → 执行 → 返回结果
+```
+
+### 核心指令集
+| 指令 | 功能 | IM支持 |
+|------|------|--------|
+| /status | 查看Agent状态 | ✅ 全平台 |
+| /start xxx | 启动Agent | ✅ 全平台 |
+| /stop | 停止Agent | ✅ 全平台 |
+| /logs agent | 查看日志 | ✅ 全平台 |
+| /todo xxx | 新建任务 | ✅ 全平台 |
+| /approve id | 审批任务 | ✅ 全平台 |
+| /deploy | 触发部署 | ✅ 全平台 |
+| /file ls | 文件列表 | ✅ 全平台 |
+| /search xxx | 全局搜索 | ✅ 全平台 |
 
 ---
 
-*— End of Product Design Document v2.0 —*
+## 多端适配策略
+
+| 场景 | 平台选择 | 核心功能 |
+|------|------|------|
+| 日常办公 | Web桌面端 | 所有模块 |
+| 外出办公 | H5移动端 | 核心功能 |
+| 手机快速操作 | 小程序 | 审批/通知/搜索 |
+| 深度开发 | App独立版 | 核心功能+离线 |
+| IM远程控制 | 飞书/企微/微信 | 指令/状态 |
+| 紧急告警 | 短信 + IM | 告警通知 |
+
+---
+
+| 产品维度 | 决策 |
+|--|--|
+| **产品名** | 持续更新文档 |
+| **价值** | 一个平台 = 办公 + 开发 + 管理 + AI + 运维 + 知识 |
+| **定位** | 统一操作系统（不是工具拼凑） |
+| **技术** | 本地优先（免费/开源/离线可用） |
+| **成本** | 永远免费，本地运行，无需服务器 |
+| **Agent** | 8+专用Agent，状态机驱动 |
+| **IM** | 飞书/企微/微信/钉钉指令控制 |
+| **多端** | 统一API层，Web/H5/小程序/App |
+| **路线图** | 12周分阶段交付 |
+| **核心差异** | IM远程控制  |
+
+---
+
+*— 产品定位：一个平台，覆盖所有日常工作场景。*
