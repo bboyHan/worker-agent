@@ -1,0 +1,85 @@
+# Sensitivity: Secrets & Tokens
+.env
+.env.*
+.local
+*.pem
+*.key
+*.p12
+*.pfx
+oauth_secret
+api_key
+token.txt
+
+# Sensitivity: Credentials
+config.json
+credentials/
+.secrets/
+.secret/
+
+# Local Paths
+/Users/
+/mnt/c/
+/mnt/d/
+/home/
+/root/
+/etc/
+/var/
+/tmp/
+
+# Node & Python
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Cache & Temp
+.cache/
+.tmp/
+temp/
+
+# OS
+Thumbs.db
+desktop.ini
+
+# Build
+*.min.js
+*.min.css
+*.map
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker
+.docker/
+
+# Terraform
+*.tfstate
+*.tfstate.backup
+.terraform/
+
+# Kubernetes
+*kubeconfig*
+*kube_cert*
+
+# Sensitive
+secrets.yaml
+values.yaml
