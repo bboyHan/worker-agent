@@ -1,0 +1,284 @@
+
+# Worker Agent — 完整交互原型
+
+> 日期: 2026-06-02
+> 状态: 完整原型
+> 说明: 单HTML文件，无需依赖，浏览器直接打开使用
+
+---
+
+## 1. 核心入口与运行方式
+
+### 1.1 安装
+
+```bash
+# macOS/Linux
+brew install node
+npm install -g worker-agent
+
+# Windows (PowerShell)
+npm install -g worker-agent
+
+# Docker
+docker pull ghcr.io/workeragent/core:latest
+docker run -p 8787:8787 ghcr.io/workeragent/core:latest
+```
+
+### 1.2 启动
+
+```bash
+# 首次启动（引导向导）
+$ workeragent
+▶ Welcome! Let's set up Worker Agent...
+  Step 1: 选择AI提供商 → Ollama (本地)
+  Step 2: 选择技术栈 → React + TypeScript
+  Step 3: 选择主题 → Dark theme
+✅ 配置保存至 ~/.config/workeragent/config.yaml
+
+# 正常运行
+$ workeragent
+🚀 Worker Agent v1.0.0 已启动
+📝 输入你想要创建的东西:
+```
+
+### 1.3 核心命令
+
+```
+workeragent <command> [options]
+
+Commands:
+  new <name>    --create  创建新项目 (脚手架)
+  run           --execute 执行设计→代码→测试→部署流程
+  agent         --manage  Agent管理/状态查看
+  plugin        --install 安装/管理插件
+  config        --edit    编辑配置
+  deploy        --deploy  手动部署
+  test          --run     运行测试
+  preview       --start   启动预览服务器
+  help          --show    帮助信息
+
+Flags:
+  -h, --help     显示帮助
+  -v, --version  显示版本
+  -d, --debug    调试模式
+  -p, --plugin   插件模式
+```
+
+### 1.4 典型使用场景
+
+```bash
+# 场景1: 一条命令从idea到产品
+$ workeragent new todo-app --tech react
+▶ Scaffold complete (2.3s)
+▶ Analyzing design requirements...
+▶ Generating tokens...
+✅ Design complete (12.5s)
+  - primary: #3B82F6 (blue)
+  - fonts: Inter, sans-serif
+  - tokens: 15 design tokens
+
+▶ Starting code generation...
+  - components: 8 (TodoList, TodoItem, etc.)
+  - hooks: 3 (useTodos, useAuth, useTheme)
+  - utils: 5 (format, validate, etc.)
+✅ Code complete (8.7s)
+
+▶ Running tests...
+  - passed: 24/24
+  - coverage: 92%
+✅ Tests passed (3.1s)
+
+▶ Deploying...
+  - building Docker image... (15.2s)
+  - running container...
+✅ Deployed to http://localhost:3000 (18.4s total)
+
+# 场景2: AI辅助编程
+$ workeragent run
+▶ 收到设计文档...
+▶ 开始代码生成...
+│  Step 1/5: Scaffold          ▶ 完成 (82%)
+│  Step 2/5: Design            ● 进行中 (45%)
+│  Step 3/5: Code              ○ 等待中 (0%)
+│  Step 4/5: Test              ○ 等待中 (0%)
+│  Step 5/5: Deploy             ○ 等待中 (0%)
+▶ 预览可用: http://localhost:3000
+
+# 场景3: 插件扩展
+$ workeragent plugin install docker-compose
+✅ Docker Compose插件已安装
+   新增命令: workeragent dc (容器编排)
+```
+
+---
+
+## 2. 插件系统交互
+
+### 2.1 插件管理
+
+```bash
+$ workeragent plugin list
+┌─── 命名 ── ── ── ── ─ ─ ─ ─ ─ ─ ── ┬─ ─ ─ ─ ─ ── ── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
+│ theme-monokai                     │ ui         │ ✅ 激活                  │
+│ deploy-vercel                     │ deploy     │ ✅ 激活                  │
+│ agent-chat-enhanced               │ agent      │ ✅ 激活                  │
+│ event-backup-notifier             │ event      │ ⏸️ 禁用                  │
+│ code-visualizer                   │ ui         │ ✅ 激活                  │
+└─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
+Total: 5 plugins installed | 4 active | 1 disabled
+
+# 启用/禁用插件
+$ workeragent plugin enable event-backup-notifier
+✅ event-backup-notifier 已启用
+
+$ workeragent plugin disable code-visualizer
+⚠️ 禁用 code-visualizer? [y/N] y
+✅ code-visualizer 已禁用
+
+# 安装插件
+$ workeragent plugin install theme-vscode-dark
+▶ 搜索 @theme-vscode-dark...
+✅ Theme VS Code Dark v1.2.0 已安装
+   需要重启生效
+
+# 管理发布插件
+$ workeragent plugin publish
+▶ Publishing plugin...
+✅ workeragent-plugin-awesome v0.1.0 已发布到 registry
+```
+
+### 2.2 插件市场 (registry模式)
+
+```bash
+$ workeragent plugin search deploy
+│ deploy-vercel          │ 1.2.0 │ Deploy to Vercel       │
+│ deploy-aws-ecs         │ 0.8.0 │ Deploy to AWS ECS    │
+│ deploy-digital-ocean   │ 1.0.0 │ Deploy to DigitalOcean │
+│ deploy-netlify         │ 1.1.0 │ Deploy to Netlify      │
+
+│ deploy-cloudflare      │ 1.3.0 │ Deploy to Cloudflare   │
+│ deploy-heroku          │ 0.9.0 │ Deploy to Heroku       │
+```
+
+---
+
+## 3. 配置编辑器
+
+### 3.1 交互式配置 (基于TUI)
+
+```
+┌─── Worker Agent Config ── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┄ │
+│                                                    │
+│  ┌─ General ── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┄ ┐
+│  │  timezone:    UTC              [ change ]        │
+│  │  lang:       auto              [ change ]        │
+│  │  log_level:  info              [ change ]        │
+│  │  auto_save:  ✓ true            [ toggle ]        │
+│  └── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
+│                                                    │
+│  ┌─ AI Provider ── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┄ ┐
+│  │  type:      Ollama (local)       [ change ]     │
+│  │  model:     llama3.1:latest      [ change ]     │
+│  │  base_url:  http://localhost:11434 [ edit ]     │
+│  └── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
+│                                                    │
+│  ┌─ Theme ── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┄ ┐
+│  │  preset:    dark                   [ change ]   │
+│  │  colors     │ primary: #3B82F6                    │
+│  │              │ surface: #1E293B                    │
+│  │              │ text:     #F1F5F9                    │
+│  └── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
+│                                                    │
+│  ┌─ Backup ── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┄ ┐
+│  │  interval:  6h                      [ edit ]    │
+│  │   destinations:                              ──── │
+│  │    - local:   ./backups                  ✓   │
+│  │    - remote:  env:REMOTE_BACKUP_URL      ○    │
+│  └── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
+│                                                    │
+│  [Save & Exit]  [Reset]  [Help]                    │
+└─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
+```
+
+### 3.2 YAML配置示例
+
+```yaml
+# ~/.config/workeragent/config.yaml
+version: "1.0"
+
+general:
+  timezone: UTC
+  lang: auto
+  log_level: info
+  auto_save: true
+
+llm:
+  provider: ollama
+  api:
+    base_url: http://localhost:11434/api
+    model: llama3.1:latest
+  settings:
+    temperature: 0.7
+    max_tokens: 4096
+    top_p: 0.9
+    streaming: true
+
+terminal:
+  theme: dark
+  rows: 24
+  columns: 80
+  cursor_style: blink
+  font_family: "JetBrains Mono"
+  font_size: 14
+
+agents:
+  max_concurrent: 3
+  default_timeout: 300  # seconds
+  retry_policy:
+    max_retries: 3
+    backoff_base: 2
+    timeout: 60
+
+theme:
+  preset: dark
+  custom_colors:
+    primary: "#3B82F6"
+    surface: "#1E293B"
+    text: "#F1F5F9"
+    success: "#10B981"
+    warning: "#F59E0B"
+    error: "#EF4444"
+    info: "#60A5FA"
+    border: "#475569"
+
+security:
+  encryption:
+    type: aes-256-gcm
+    key_rotation: 90  # days
+  prompt_injection_protection: true
+
+backup:
+  interval: 6h
+  max_backups: 7
+  destinations:
+    - type: local
+      path: ./backups
+      
+plugin:
+  auto_install: false
+  registry_url: https://registry.workeragent.io
+```
+
+### 3.3 多项目配置
+
+```yaml
+# ~./config/workeragent/projects/demo-blog/config.yaml
+project_name: "My Blog"
+tech_stack:
+  frontend: react
+  backend: fastapi
+  test: vitest
+  style_system: tailwindcss
+
+agents:
+  default_te

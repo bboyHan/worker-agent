@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Worker Agent v1.0 - 完整原型</title>
+<style>
+:root {
+  --bg:#0a0a0f; --bg1:#12121a; --bg2:#1a1a2e; --bg3:#242440; --border:#333355;
+  --txt:#e0e0f0; --txt2:#888; --txt3:#555; --blue:#5b8dee; --green:#4ade80;
+  --yellow:#f59e0b; --red:#ef4444; --purple:#a78bfa; --cyan:#22d3ee; --pink:#f472b6; --orange:#fb923c;
+  --mono: "Cascadia Code", "Fira Code", "JetBrains Mono", monospace
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--mono);background:var(--bg);color:var(--txt);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+/* top */
+.tb{display:flex;align-items:center;height:36px;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 12px;flex-shrink:0}
+.tb h1{font-size:13px;color:var(--blue);font-weight:700;display:flex;align-items:center;gap:6px}
+.tab-btn{padding:6px 12px;background:0;border:0;color:var(--txt2);font-size:12px;cursor:pointer;font-family:inherit;margin-left:12px;border-bottom:2px solid 0;transition:.15s}
+.tab-btn:hover{color:var(--txt)}
+.tab-btn.on{color:var(--txt);border-bottom-color:var(--blue)}
+/* main */
+.main{display:flex;flex:1;overflow:hidden}
+/* sidebar */
+.sb{width:160px;background:var(--bg1);border-right:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column}
+.sb-head{padding:8px 12px;font-size:11px;color:var(--txt3);border-bottom:1px solid var(--border)}
+.sb-section{padding:6px}
+.sb-section-title{font-size:10px;color:var(--txt3);padding:4px 8px;text-transform:uppercase}
+.sb-item{padding:4px 8px 4px 16px;font-size:12px;color:var(--txt2);cursor:pointer;border-radius:4px;display:flex;align-items:center;gap:6px}
+.sb-item:hover{background:var(--bg3);color:var(--txt)}
+.sb-item.on{color:var(--blue);background:rgba(91,141,238,.08)}
+/* content */
+.ct{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.ws{display:none;flex:1;flex-direction:column;overflow:hidden}
+.ws.on{display:flex}
+/* terminal */
+.term-out{flex:1;padding:16px;overflow-y:auto;font-size:12px;line-height:1.6}
+.term-row{margin-bottom:8px}
+.term-prompt{color:var(--cyan);font-size:12px}
+.term-input-row{display:flex;align-items:center;padding:0 16px 16px;gap:6px;flex-shrink:0}
+.term-input{flex:1;background:0;border:0;color:var(--txt);font-family:inherit;font-size:12px;outline:0}
+/* output */
+.out-block{margin-bottom:10px}
+.out-box{background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin:4px 0;font-size:11px;line-height:1.6;overflow-x:auto}
+/* progress */
+.prg-line{display:flex;align-items:center;gap:8px;padding:3px 0}
+.prg-label{width:80px;font-size:11px;color:var(--txt2)}
+.prg-bar{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.prg-fill{height:100%;background:var(--blue);border-radius:3px;transition:width .3s}
+.prg-pct{width:36px;font-size:11px;color:var(--txt3);text-align:right}
+/* confirm */
+.confirm-box{background:var(--bg1);border:1px solid var(--blue);border-radius:8px;padding:12px 14px;margin:6px 0}
+.confirm-box h3{font-size:13px;font-weight:600;color:var(--blue);margin-bottom:6px}
+.confirm-box .step{display:flex;gap:8px;padding:4px 0;font-size:11px}
+.confirm-box .step-num{width:18px;height:18px;border-radius:50%;background:var(--blue);color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.confirm-box .step-info{flex:1}
+.confirm-box .step-title{font-weight:600}
+.confirm-box .step-detail{color:var(--txt3);font-size:10px}
+.confirm-btns{display:flex;gap:6px;margin-top:8px}
+.btn{padding:5px 12px;border-radius:4px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--txt);font-family:inherit}
+.btn:hover{border-color:var(--blue)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.danger{background:var(--red);border-color:var(--red);color:#fff}
+/* token grid */
+.token-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin:4px 0}
+.token-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:11px}
+.token-name{font-weight:600;color:var(--txt)}
+.token-val{color:var(--txt2);font-size:10px;margin-top:2px}
+.token-lock{color:var(--green);font-size:9px;margin-left:4px}
+/* agent board */
+.agent-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:6px 0}
+.ag-card{background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;cursor:pointer;transition:.15s}
+.ag-card:hover{border-color:var(--blue)}
+.ag-card.active{border-color:var(--blue);box-shadow:0 0 10px rgba(91,141,238,.2)}
+.ag-card .icon{font-size:20px;margin-bottom:4px}
+.ag-card .name{font-weight:600;font-size:12px;margin-bottom:2px}
+.ag-card .status{font-size:10px;color:var(--txt3)}
+.ag-card .type{font-size:9px;color:var(--txt3);margin-top:3px}
+/* file tree */
+.ft-item{padding:2px 8px;font-size:12px;color:var(--txt2);cursor:pointer;display:flex;align-items:center;gap:5px}
+.ft-item:hover{color:var(--txt)}
+.ft-item.folder{color:var(--txt)}
+.ft-item.locked{color:var(--green)}
+.ft-item.pending{color:var(--yellow)}
+.ft-item.missing{color:var(--txt3)}
+.ft-status{margin-left:auto;font-size:10px}
+/* plugin */
+.plg-card{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;margin-bottom:4px;cursor:pointer}
+.plg-card:hover{border-color:var(--blue)}
+.plg-info{flex:1}
+.plg-name{font-weight:600;font-size:12px}
+.plg-desc{font-size:10px;color:var(--txt3)}
+.plg-badge{padding:2px 6px;border-radius:3px;font-size:10px}
+.plg-badge.on{background:rgba(74,222,128,.12);color:var(--green)}
+.plg-badge.off{background:rgba(100,100,100,.15);color:#888}
+/* welcome */
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 20px}
+.welcome .title{font-size:24px;font-weight:700;color:var(--blue);margin-bottom:4px}
+.welcome .subtitle{font-size:13px;color:var(--txt2);margin-bottom:16px}
+.welcome .hint{font-size:11px;color:var(--txt3);margin-bottom:20px}
+.welcome .hint code{background:var(--bg3);padding:1px 5px;border-radius:3px;color:var(--cyan);font-size:10px}
+.quick-btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:600px}
+.quick-btn{padding:8px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--txt);cursor:pointer;font-size:11px;font-family:inherit;display:flex;align-items:center;gap:6px;transition:.15s}
+.quick-btn:hover{border-color:var(--blue)}
+/* status bar */
+.sbar{display:flex;align-items:center;height:20px;padding:0 12px;background:var(--blue);font-size:10px;color:#fff;flex-shrink:0;font-family:var(--mono)}
+.sbar span{margin-right:14px;opacity:.9}
+/* toast */
+.toast-box{position:fixed;top:36px;right:12px;display:flex;flex-direction:column;gap:6px;z-index:999}
+.toast{padding:8px 12px;border-radius:6px;font-size:11px;color:#fff;animation:slideIn .2s ease}
+.toast.success{background:var(--green);color:#111}
+.toast.info{background:var(--blue)}
+.toast.warning{background:var(--yellow);color:#111}
+.toast.error{background:var(--red)}
+.toast.fade{opacity:0;transition:opacity .25s}
+@keyframes slideIn{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
+/* agent detail */
+.agent-detail{background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:8px;font-size:11px}
+.agent-detail-title{font-weight:600;margin-bottom:6px}
+.agent-detail-row{margin-bottom:3px}
+.agent-detail-label{color:var(--txt3)}
+/* misc */
+.text-blue{color:var(--blue)}
+.text-green{color:var(--green)}
+.text-yellow{color:var(--yellow)}
+.text-red{color:var(--red)}
+.text-purple{color:var(--purple)}
+.text-cyan{color:var(--cyan)}
+.text-orange{color:var(--orange)}
+.text-pink{color:var(--pink)}
+.muted{color:var(--txt3)}
+</style>
+</head>
+<body>
+<!-- TOP BAR -->
+<div class="tb">
+<h1>⚡ Worker Agent <span style="color:var(--green);font-weight:400">v1.0</span></h1>
+<button class="tab-btn on" onclick="switchTab('term')">💻 终端</button>
+<button class="tab-btn" onclick="switchTab('agents')">🤖 Agents</button>
+<button class="tab-btn" onclick="switchTab('files')">📁 文件</button>
+<button class="tab-btn" onclick="switchTab('plugins')">🧩 插件</button>
+<button class="tab-btn" onclick="switchTab('tokens')">🎨 Tokens</button>
+<div style="margin-left:auto;font-size:11px;color:var(--txt3);">● 已连接</div>
+</div>
+<!-- MAIN -->
+<div class="main">
+<!-- SIDEBAR -->
+<div class="sb">
+<div class="sb-head">📂 hello-world</div>
+<div class="sb-section">
+<div class="sb-section-title">导航</div>
+<div class="sb-item on" onclick="switchWS('term')">💻 终端</div>
+<div class="sb-item" onclick="switchWS('agents')">🤖 Agents</div>
+<div class="sb-item" onclick="switchWS('files')">📁 文件</div>
+<div class="sb-item" onclick="switchWS('plugins')">🧩 插件</div>
+<div class="sb-item" onclick="switchWS('tokens')">🎨 Tokens</div>
+</div>
+<div class="sb-section">
+<div class="sb-section-title">快捷</div>
+<div class="sb-item" onclick="toast('Preview: localhost:3000')">👁️ Preview</div>
+<div class="sb-item" onclick="toast('Backup 已执行')">💾 Backup</div>
+<div class="sb-item" onclick="toast('Visual Lock 已锁定')">🔒 Visual Lock</div>
+</div>
+</div>
+<!-- CONTENT -->
+<div class="ct">
+<div class="ws on" id="ws-term">
+<div class="term-out" id="termOut">
+<div class="welcome" id="welcomeArea">
+<div class="title">⚡ Worker Agent</div>
+<div class="subtitle">一条命令，从 idea 到产品</div>
+<div class="hint">输入你想要创建的东西：<br><code>Tab</code> 补全 · <code>↑↓</code> 历史</div>
+<div class="quick-btns">
+<button class="quick-btn" onclick="runCmd('new todo-app --tech react')">📝 Todo App</button>
+<button class="quick-btn" onclick="runCmd('new blog --tech vue')">📰 博客</button>
+<button class="quick-btn" onclick="runCmd('new api --tech fastapi')">🔌 API</button>
+<button class="quick-btn" onclick="runCmd('agent list')">🤖 Agent 列表</button>
+<button class="quick-btn" onclick="runCmd('design tokens')">🎨 Design Tokens</button>
+<button class="quick-btn" onclick="runCmd('visual-lock')">🔒 Visual Lock</button>
+<button class="quick-btn" onclick="runCmd('help')">📖 帮助</button>
+<button class="quick-btn" onclick="runCmd('clear')">🧹 清屏</button>
+</div>
+</div>
+</div>
+<div class="term-input-row">
+<span class="term-prompt">workeragent➜</span>~<input class="term-input" id="cmdInput" onkeydown="handleKey(event)" placeholder="输入命令...">
+</div>
+</div>
+<div class="ws" id="ws-agents">
+<div style="padding:16px;flex:1;overflow:auto">
+<div style="font-size:14px;font-weight:600;margin-bottom:10px">🤖 Agent 状态板</div>
+<div class="agent-grid" id="agentGrid"></div>
+<div class="agent-detail" id="agentDetail"><div class="agent-detail-title">点击 Agent 查看详情</div></div>
+</div>
+</div>
+<div class="ws" id="ws-files">
+<div style="padding:16px;flex:1;overflow:auto">
+<div style="font-size:14px;font-weight:600;margin-bottom:10px">📁 文件浏览器</div>
+<div id="fileTree"></div>
+</div>
+</div>
+<div class="ws" id="ws-plugins">
+<div style="padding:16px;flex:1;overflow:auto">
+<div style="font-size:14px;font-weight:600;margin-bottom:10px">🧩 插件管理</div>
+<div id="pluginList"></div>
+</div>
+</div>
+<div class="ws" id="ws-tokens">
+<div style="padding:16px;flex:1;overflow:auto">
+<div style="font-size:14px;font-weight:600;margin-bottom:10px">🎨 Design Tokens</div>
+<div class="token-grid" id="tokenGrid"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- STATUS BAR -->
+<div class="sbar"><span id="agentCount">🤖 0/12</span><span id="statusText">⏸️ 就绪</span><span style="margin-right:auto">UTF-8 | 24 cols</span></div>
+<!-- TOAST -->
+<div class="toast-box" id="toastBox"></div>
+<script>
+// ===== DATA =====
+var agents=[
+  {id:'scheduler',icon:'⏱️',name:'Scheduler',type:'core',color:'var(--blue)'},
+  {id:'architect',icon:'🏗️',name:'Architect',type:'aux',color:'var(--green)'},
+  {id:'designer',icon:'🎨',name:'Designer',type:'core',color:'var(--purple)'},
+  {id:'coder',icon:'💻',name:'Coder',type:'core',color:'var(--green)'},
+  {id:'tester',icon:'🧪',name:'Tester',type:'core',color:'var(--yellow)'},
+  {id:'deployer',icon:'🚀',name:'Deployer',type:'core',color:'var(--pink)'},
+  {id:'security',icon:'🔒',name:'Security',type:'aux',color:'var(--green)'},
+  {id:'data',icon:'📊',name:'Data',type:'aux',color:'var(--cyan)'},
+  {id:'build',icon:'🔨',name:'Build',type:'aux',color:'var(--orange)'},
+  {id:'monitor',icon:'📡',name:'Monitor',type:'aux',color:'var(--yellow)'},
+  {id:'assistant',icon:'🤝',name:'Assistant',type:'aux',color:'var(--green)'},
+  {id:'ui',icon:'🖼️',name:'UI',type:'aux',color:'var(--purple)'}
+];
+var pipelineSteps=[
+  {name:'Scaffold',agent:'scheduler',duration:5},
+  {name:'Design',agent:'designer',duration:10},
+  {name:'Code',agent:'coder',duration:12},
+  {name:'Test',agent:'tester',duration:5},
+  {name:'Deploy',agent:'deployer',duration:5}
+];
+var tokenData=[
+  {name:'primary',value:'#3B82F6',type:'color',locked:true},
+  {name:'secondary',value:'#8B5CF6',type:'color',locked:true},
+  {name:'success',value:'#10B981',type:'color',locked:true},
+  {name:'error',value:'#EF4444',type:'color',locked:true},
+  {name:'warning',value:'#F59E0B',type:'color',locked:true},
+  {name:'surface',value:'#1E293B',type:'color',locked:true},
+  {name:'heading',value:'Inter',type:'font',locked:true},
+  {name:'body',value:'Inter',type:'font',locked:true},
+  {name:'radius',value:'8px',type:'radius',locked:true},
+  {name:'shadow',value:'0 2px 8px',type:'shadow',locked:false}
+];
+var plugins=[
+  {name:'theme-monokai',desc:'Monokai 终端主题',active:true},
+  {name:'deploy-vercel',desc:'一键部署到 Vercel',active:true},
+  {name:'chat-enhanced',desc:'增强版对话 Agent',active:true},
+  {name:'backup-notifier',desc:'自动备份通知',active:false},
+  {name:'code-viz',desc:'代码可视化面板',active:true}
+];
+var files=[
+  'src', 0, null, 0,
+  '  ├── App.tsx', 1, 'ok',
+  '  ├── main.tsx', 1, 'ok',
+  '  ├── index.tsx', 1, 'ok',
+  '  ├── types.ts', 1, 'ok',
+  '  ├── components', 1, null, 0,
+  '  │   ├── TodoList.tsx', 2, 'ok',
+  '  │   ├── TodoItem.tsx', 2, 'ok',
+  '  │   └── Button.tsx', 2, 'locked',
+  '  ├── hooks', 1, null, 0,
+  '  │   ├── useTodos.ts', 2, 'ok',
+  '  │   └── useTheme.ts', 2, 'ok',
+  '  ├── styles/globals.css', 1, 'ok',
+  '  └── styles/tokens.json', 1, 'locked',
+  'tests', 0, null, 0,
+  '  ├── TodoList.test.tsx', 1, 'pending',
+  '  ├── TodoItem.test.tsx', 1, 'pending',
+  'deploy.conf', 0, 'missing',
+  'package.json', 0, 'missing'
+];
+var agentStates={};
+var stepProgress={};
+
+// ===== INIT =====
+(function init(){
+  var i;
+  for(i=0;i<agents.length;i++){agentStates[agents[i].id]='idle'}
+  for(i=0;i<pipelineSteps.length;i++){stepProgress[pipelineSteps[i].name]={progress:0,status:'waiting'}}
+  renderAgentGrid();
+  renderTokenGrid();
+  renderPluginList();
+  renderFileTree();
+  updateAgentCount();
+})();
+
+// ===== NAVIGATION =====
+function switchTab(tabId){
+  var btns=document.querySelectorAll('.tab-btn');
+  var i;
+  for(i=0;i<btns.length;i++){btns[i].classList.remove('on')}
+  event.target.classList.add('on');
+  switchWS(tabId);
+}
+
+function switchWS(tabId){
+  var i;
+  var ws=document.querySelectorAll('.ws');
+  for(i=0;i<ws.length;i++){ws[i].classList.remove('on')}
+  document.getElementById('ws-'+tabId).classList.add('on');
+  var sbItems=document.querySelectorAll('.sb-item');
+  for(i=0;i<sbItems.length;i++){sbItems[i].classList.remove('on')}
+  if(event.target.classList && event.target.classList.contains('sb-item')){
+    event.target.classList.add('on');
+  }
+}
+
+// ===== TOAST =====
+function toast(msg, type){
+  if(!type){
+    type='info';
+  }
+  if(msg.indexOf('✅')>=0 || msg.indexOf('🎉')>=0){
+    type='success';
+  }
+  if(msg.indexOf('🔒')>=0 || msg.indexOf('⏸️')>=0){
+    type='info';
+  }
+  if(msg.indexOf('❌')>=0 || msg.indexOf('🧹')>=0){
+    type='warning';
+  }
+  var box=document.getElementById('toastBox');
+  var div=document.createElement('div');
+  div.className='toast ' + type;
+  div.textContent=msg;
+  box.appendChild(div);
+  setTimeout(function(){
+    div.classList.add('fade');
+    setTimeout(function(){
+      if(div.parentNode){div.parentNode.removeChild(div)}
+    }, 300);
+  }, 2500);
+}
+
+// ===== COMMAND LINE =====
+function handleKey(e){
+  if(e.keyCode===13){
+    var input=document.getElementById('cmdInput');
+    var cmd=input.value.trim();
+    if(cmd){
+      processCommand(cmd);
+      input.value='';
+    }
+  }
+}
+
+function processCommand(cmd){
+  var out=document.getElementById('termOut');
+  var welcome=document.getElementById('welcomeArea');
+  if(welcome){welcome.style.display='none'}
+
+  // Echo
+  var echoRow=document.createElement('div');
+  echoRow.className='term-row';
+  echoRow.innerHTML='<span class="term-prompt">workeragent➜</span> ~ <span class="text-blue">' + escapeHtml(cmd) + '</span>';
+  out.appendChild(echoRow);
+
+  var lc=cmd.toLowerCase().trim();
+  if(lc==='new todo-app --tech react'){
+    startPipeline(lc);
+  } else if(lc==='new blog --tech vue'){
+    startPipeline(lc);
+  } else if(lc==='new api --tech fastapi'){
+    startPipeline(lc);
+  } else if(lc==='agent list'||lc==='agent'){
+    showAgents(out);
+  } else if(lc==='design tokens'||lc==='tokens'){
+    showTokens(out);
+  } else if(lc==='visual-lock'){
+    showVisualLock(out);
+  } else if(lc==='plugin list'||lc==='plugins'){
+    showPlugins(out);
+  } else if(lc==='help'){
+    showHelp(out);
+  } else if(lc==='clear'){
+    out.innerHTML='';
+  } else if(lc==='preview'||lc==='serve'){
+    toast('Preview: http://localhost:3000');
+  } else if(lc==='deploy'){
+    toast('部署已触发');
+  } else {
+    showBlock(out, '⚠️', 'text-yellow', '命令未识别。<span class="text-cyan">help</span> 查看可用命令。');
+  }
+  out.scrollTop=out.scrollHeight;
+}
+
+function runCmd(cmd){
+  processCommand(cmd);
+}
+
+// ===== OUTPUT HELPERS =====
+function showBlock(out, icon, cls, html){
+  var div=document.createElement('div');
+  div.className='out-block';
+  div.innerHTML='<span class="' + cls + '">' + icon + '</span> ' + html;
+  out.appendChild(div);
+}
+
+function showBox(out, html){
+  var div=document.createElement('div');
+  div.className='out-box';
+  div.innerHTML=html;
+  out.appendChild(div);
+}
+
+function escapeHtml(str){
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ===== COMMANDS =====
+function showAgents(out){
+  showBlock(out, '🤖', 'text-purple', '<strong>Agent 列表</strong>');
+  var html='<div style="line-height:1.8">';
+  html+='<div><span class="text-blue">⏱️ Scheduler</span> <span class="muted">核心 · 调度器</span></div>';
+  html+='<div style="padding-left:16px"><span>🏗️ Architect</span> <span class="muted">辅助</span></div>';
+  html+='<div style="padding-left:16px"><span class="text-purple">🎨 Designer</span> <span class="muted">核心 · 设计</span></div>';
+  html+='<div style="padding-left:16px"><span class="text-green">💻 Coder</span> <span class="muted">核心 · 代码</span></div>';
+  html+='<div style="padding-left:16px"><span class="text-yellow">🧪 Tester</span> <span class="muted">核心 · 测试</span></div>';
+  html+='<div style="padding-left:16px"><span class="text-pink">🚀 Deployer</span> <span class="muted">核心 · 部署</span></div>';
+  html+='<div style="padding-left:16px"><span>🔒 Security</span> <span class="muted">辅助</span></div>';
+  html+='<div style="padding-left:16px"><span class="text-cyan">📊 Data</span> <span class="muted">辅助</span></div>';
+  html+='<div style="padding-left:16px"><span class="text-orange">🔨 Build</span> <span class="muted">辅助</span></div>';
+  html+='<div style="padding-left:16px"><span>📡 Monitor</span> <span class="muted">辅助</span></div>';
+  html+='<div style="padding-left:16px"><span>🤝 Assistant</span> <span class="muted">辅助</span></div>';
+  html+='<div style="padding-left:16px"><span class="text-purple">🖼️ UI</span> <span class="muted">辅助</span></div>';
+  html+='<div style="margin-top:6px;font-size:10px;color:var(--txt3)">共 12 Agents (5核心 + 7辅助)</div>';
+  html+='</div>';
+  showBox(out, html);
+}
+
+function showTokens(out){
+  showBlock(out, '🎨', 'text-green', '<strong>Design Tokens (10)</strong>');
+  var html='<div style="line-height:1.8">';
+  html+='<div><span class="text-cyan">primary</span>: <span style="color:#3B82F6">#3B82F6</span> <span class="text-green">🔒</span></div>';
+  html+='<div><span class="text-cyan">success</span>: <span style="color:#10B981">#10B981</span> <span class="text-green">🔒</span></div>';
+  html+='<div><span class="text-cyan">error</span>: <span style="color:#EF4444">#EF4444</span> <span class="text-green">🔒</span></div>';
+  html+='<div><span class="text-cyan">surface</span>: <span style="color:#1E293B">#1E293B</span> <span class="text-green">🔒</span></div>';
+  html+='<div style="margin-top:6px;font-size:10px;color:var(--txt3)">* 带 🔒 的 tokens 受 Visual Lock 保护</div>';
+  html+='</div>';
+  showBox(out, html);
+}
+
+function showVisualLock(out){
+  showBlock(out, '🔒', 'text-green', '<strong>Visual Lock 状态</strong>');
+  var html='<div style="line-height:1.8">';
+  html+='<div><strong>Locked Tokens:</strong> <span class="text-green">10</span></div>';
+  html+='<div><strong>Enforcement:</strong> <span class="text-green">● Strict (当前模式)</span></div>';
+  html+='<div><strong>Violation Attempts:</strong> <span class="text-green">0</span> (本次会话)</div>';
+  html+='<div><strong>Last Check:</strong> <span class="muted">刚刚</span></div>';
+  html+='</div>';
+  showBox(out, html);
+}
+
+function showPlugins(out){
+  showBlock(out, '🧩', 'text-blue', '<strong>Plugin 列表</strong>');
+  var html='<div style="line-height:1.8">';
+  html+='<div><span class="text-green">●</span> theme-monokai (激活)</div>';
+  html+='<div><span class="text-green">●</span> deploy-vercel (激活)</div>';
+  html+='<div><span class="text-green">●</span> chat-enhanced (激活)</div>';
+  html+='<div><span class="muted">○</span> backup-notifier (禁用)</div>';
+  html+='<div><span class="text-green">●</span> code-viz (激活)</div>';
+  html+='</div>';
+  showBox(out, html);
+}
+
+function showHelp(out){
+  showBlock(out, '📖', 'text-blue', '<strong>Worker Agent 帮助</strong>');
+  var html='<div style="line-height:1.8">';
+  html+='<div><span class="text-cyan"><strong>new &lt;name&gt; [--tech &lt;stack&gt;]</strong></span></div>';
+  html+='<div style="padding-left:14px" class="muted">创建新项目 (脚手架+设计+代码+测试+部署)</div>';
+  html+='<div style="margin-top:6px"><span class="text-cyan"><strong>agent list</strong></span></div>';
+  html+='<div style="padding-left:14px" class="muted">查看所有 Agent 状态</div>';
+  html+='<div style="margin-top:6px"><span class="text-cyan"><strong>design tokens | tokens</strong></span></div>';
+  html+='<div style="padding-left:14px" class="muted">查看 Design Tokens</div>';
+  html+='<div style="margin-top:6px"><span class="text-cyan"><strong>visual-lock</strong></span></div>';
+  html+='<div style="padding-left:14px" class="muted">查看 Visual Lock 状态</div>';
+  html+='<div style="margin-top:6px"><span class="text-cyan"><strong>plugin list | plugins</strong></span></div>';
+  html+='<div style="padding-left:14px" class="muted">查看所有 Plugin</div>';
+  html+='<div style="margin-top:6px"><span class="text-cyan"><strong>preview | serve</strong></span></div>';
+  html+='<div style="padding-left:14px" class="muted">启动预览服务器</div>';
+  html+='<div style="margin-top:6px"><span class="text-cyan"><strong>clear</strong></span></div>';
+  html+='<div style="padding-left:14px" class="muted">清屏</div>';
+  html+='</div>';
+  showBox(out, html);
+}
+
+function startPipeline(cmd){
+  toast('🎯 Intent 解析: 创建应用');
+  updateStatus('🎯 正在分析意图...');
+
+  var out=document.getElementById('termOut');
+  var i;
+
+  setTimeout(function(){
+    updateStatus('✅ Intent 分析完成');
+    updateStatus('⏸️ 等待确认');
+
+    var confirmDiv=document.createElement('div');
+    confirmDiv.className='confirm-box';
+    confirmDiv.id='confirmBox';
+    var cHtml='<h3>📋 执行计划确认</h3>';
+    for(i=0;i<pipelineSteps.length;i++){
+      cHtml+='<div class="step"><div class="step-num">' + (i+1) + '</div><div class="step-info"><div class="step-title">' + pipelineSteps[i].name + '</div><div class="step-detail">预计 ' + pipelineSteps[i].duration + 's</div></div></div>';
+    }
+    cHtml+='<div style="margin-top:8px;font-size:10px;color:var(--txt3)">按 <span class="text-green">a</span> 批准 · <span class="text-red">c</span> 取消</div>';
+    cHtml+='<div class="confirm-btns">';
+    cHtml+='<button class="btn primary" onclick="confirmYes()">✅ 批准全部</button>';
+    cHtml+='<button class="btn danger" onclick="confirmNo()">❌ 取消</button>';
+    cHtml+='</div>';
+    confirmDiv.innerHTML=cHtml;
+    out.appendChild(confirmDiv);
+    out.scrollTop=out.scrollHeight;
+
+    setTimeout(function(){
+      confirmYes();
+    }, 2500);
+  }, 600);
+}
+
+function confirmYes(){
+  var cb=document.getElementById('confirmBox');
+  if(cb){cb.parentNode.removeChild(cb)}
+  toast('✅ 全部批准');
+  updateStatus('▶ 执行中', 'text-blue');
+  executeStep(0);
+}
+
+function confirmNo(){
+  var cb=document.getElementById('confirmBox');
+  if(cb){cb.parentNode.removeChild(cb)}
+  toast('❌ 已取消');
+  updateStatus('❌ 已取消');
+}
+
+function executeStep(idx){
+  if(idx>=pipelineSteps.length){
+    updateStatus('✅ Pipeline 完成');
+    toast('🎉 Pipeline 完成!');
+    var out=document.getElementById('termOut');
+    showBlock(out, '✅', 'text-green', '<strong>Pipeline 完成!</strong> 预览: http://localhost:3000');
+    out.scrollTop=out.scrollHeight;
+    updateAgentCount();
+    return;
+  }
+
+  var step=pipelineSteps[idx];
+  var pr=stepProgress[step.name];
+  agentStates[step.agent]='active';
+  pr.status='running';
+  pr.progress=0;
+
+  updateAgentCount();
+  renderAgentGrid();
+
+  updateStatus('▶ ' + step.name + ' 进行中...');
+
+  var out=document.getElementById('termOut');
+  var div=document.createElement('div');
+  div.className='out-block';
+  div.id='step-' + step.name;
+  div.innerHTML='<div class="prg-line"><span class="prg-label">' + step.name + '</span><div class="prg-bar"><div class="prg-fill" style="width:0%"></div></div><span class="prg-pct">0%</span></div>';
+  out.appendChild(div);
+  out.scrollTop=out.scrollHeight;
+
+  var dur=step.duration*1000;
+  var interval=50;
+  var tick=setInterval(function(){
+    pr.progress=pr.progress+(100/(dur/interval));
+    if(pr.progress>100){pr.progress=100}
+    var el=document.getElementById('step-' + step.name);
+    if(el){
+      var fill=el.querySelector('.prg-fill');
+      var pct=el.querySelector('.prg-pct');
+      if(fill){fill.style.width=pr.progress+'%'}
+      if(pct){pct.textContent=Math.round(pr.progress)+'%'}
+    }
+    if(pr.progress>=100){
+      clearInterval(tick);
+      pr.status='success';
+      agentStates[step.agent]='idle';
+      updateAgentCount();
+      renderAgentGrid();
+
+      var el2=document.getElementById('step-' + step.name);
+      if(el2){
+        el2.innerHTML='<div class="prg-line"><span class="prg-label text-green">' + step.name + ' ✅</span><div class="prg-bar"><div class="prg-fill" style="width:100%;background:var(--green)"></div></div><span class="prg-pct text-green">100%</span></div>';
+      }
+      updateStatus('✅ ' + step.name + ' 完成', 'text-green');
+      toast('✅ ' + step.name + ' 完成');
+      setTimeout(function(){executeStep(idx+1)}, 400);
+    }
+  }, interval);
+}
+
+function updateStatus(text, cls){
+  var el=document.getElementById('statusText');
+  if(el){el.textContent=text;if(cls){el.className=cls}}
+}
+
+// ===== AGENT GRID =====
+function renderAgentGrid(){
+  var grid=document.getElementById('agentGrid');
+  if(!grid){return}
+  var html='';
+  var i;
+  for(i=0;i<agents.length;i++){
+    var a=agents[i];
+    var st=agentStates[a.id];
+    var isActive=st==='active';
+    var color=a.color;
+    html+='<div class="ag-card' + (isActive?' active':'') + '" onclick="showAgentDetail(\'' + a.id + '\')">';
+    html+='<div class="icon">' + a.icon + '</div>';
+    html+='<div class="name">' + a.name + '</div>';
+    html+='<div class="status" style="color:' + color + '">' + (isActive?'▶ 活跃':'○ 空闲') + '</div>';
+    html+='<div class="type">' + (a.type==='core'?'核心':'辅助') + '</div>';
+    html+'</div>';
+  }
+  grid.innerHTML=html;
+}
+
+function showAgentDetail(id){
+  var a=null;
+  var i;
+  for(i=0;i<agents.length;i++){
+    if(agents[i].id===id){a=agents[i];break}
+  }
+  if(!a){return}
+  var st=agentStates[a.id];
+  var color=a.color;
+  var detail=document.getElementById('agentDetail');
+  var html='<div class="agent-detail-title">' + a.icon + ' ' + a.name + '</div>';
+  html+='<div class="agent-detail-row"><span class="agent-detail-label">类型: </span><span style="color:' + color + '">' + (a.type==='core'?'核心':'辅助') + '</span></div>';
+  html+='<div class="agent-detail-row"><span class="agent-detail-label">状态: </span><span style="color:' + color + '">' + (st==='active'?'▶ 运行中':st==='waiting'?'⏸️ 等待':'○ 空闲') + '</span></div>';
+  html+='<div class="agent-detail-row"><span class="agent-detail-label">超时: </span>300s</div>';
+  html+='<div class="agent-detail-row"><span class="agent-detail-label">重试: </span>3次</div>';
+  html+='<div style="margin-top:6px;font-size:10px;color:var(--txt3)">通信协议: WebSocket / MCP / 文件系统</div>';
+  detail.innerHTML=html;
+}
+
+function updateAgentCount(){
+  var activeCount=0;
+  var vals=Object.keys(agentStates);
+  var i;
+  for(i=0;i<vals.length;i++){
+    if(agentStates[vals[i]]==='active'){activeCount++}
+  }
+  var el=document.getElementById('agentCount');
+  if(el){el.textContent='🤖 ' + activeCount + '/12'}
+}
+
+// ===== TOKEN GRID =====
+function renderTokenGrid(){
+  var grid=document.getElementById('tokenGrid');
+  if(!grid){return}
+  var html='';
+  var i;
+  for(i=0;i<tokenData.length;i++){
+    var t=tokenData[i];
+    var isColor=t.type==='color';
+    var swatch=isColor?t.value:'#333';
+    html+='<div class="token-card">';
+    html+='<div class="token-name">' + t.name;
+    if(t.locked){html+='<span class="token-lock">🔒</span>'}
+    html+='</div>';
+    html+='<div class="token-val" style="' + (isColor?'color:' + t.value+';':'') + '">' + t.value + '</div>';
+    html+='</div>';
+  }
+  grid.innerHTML=html;
+}
+
+// ===== PLUGIN LIST =====
+function renderPluginList(){
+  var list=document.getElementById('pluginList');
+  if(!list){return}
+  var html='';
+  var i;
+  for(i=0;i<plugins.length;i++){
+    var p=plugins[i];
+    html+='<div class="plg-card" onclick="togglePlugin(' + i + ')">';
+    html+='<div class="plg-info"><div class="plg-name">' + p.name + '</div><div class="plg-desc">' + p.desc + '</div></div>';
+    html+='<span class="plg-badge ' + (p.active?'on':'off') + '">' + (p.active?'激活':'禁用') + '</span>';
+    html+='</div>';
+  }
+  list.innerHTML=html;
+}
+
+function togglePlugin(idx){
+  plugins[idx].active=!plugins[idx].active;
+  toast('🔄 ' + plugins[idx].name + ' ' + (plugins[idx].active?'已激活':'已禁用'));
+  renderPluginList();
+}
+
+// ===== FILE TREE =====
+function renderFileTree(){
+  var tree=document.getElementById('fileTree');
+  if(!tree){return}
+  var html='';
+  var i=0;
+  while(i<files.length){
+    var name=files[i];
+    var depth=files[i+1];
+    var status=files[i+2];
+    i=i+3;
+    var indent='';
+    var j;
+    for(j=0;j<depth*2;j++){indent+='&nbsp;'}
+    var icon='';
+    var cssClass='';
+    if(status==='ok'){icon='✅';cssClass=''}
+    else if(status==='locked'){icon='🔒';cssClass='locked'}
+    else if(status==='pending'){icon='⏳';cssClass='pending'}
+    else if(status==='missing'){icon='○';cssClass='missing'}
+    else{icon='📁';cssClass='folder'}
+    html+='<div class="ft-item ' + cssClass + '" style="' + (depth>0?'padding-left:' + (12+depth*16)+'px':'') + '">' + indent + '<span style="margin-right:4px">' + icon + '</span>' + name;
+    if(status!=='ok'&&status!==null){html+='<span class="ft-status">' + (status==='locked'?'locked':status==='pending'?'pending':'missing') + '</span>'}
+    html+='</div>';
+  }
+  tree.innerHTML=html;
+}
+</script>
+</body>
+</html>

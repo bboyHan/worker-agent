@@ -227,8 +227,8 @@ html,body{height:100vh;overflow:hidden;font-family:'Inter',system-ui,-apple-syst
 .kb-cat.active{background:var(--acs);color:var(--ac)}
 /* Search */
 .kb-search-wrap{margin-bottom:14px;padding:0 8px}
-.kb-search-wrap input{width:100%;padding:8px 10px 8px 30px;background:var(--bg3);border:1px solid var(--brd);border-radius:var(--rs);color:var(--tx);font-size:12px;outline:none;font-family:inherit;position:relative}
-.kb-search-wrap .icon{position:absolute;left:18px;top:50%;transform:translateY(-50%);color:var(--txm);font-size:12px}
+.kb-search-wrap input{width:100%;padding:8px 10px 8px 30px;background:var(--bg3);border:1px solid var(--brd);border-radius:var(--rs);color:var(--tx);font-size:12px;outline:none;font-family:inherit}
+.kb-search-wrap .icon{position:absolute;left:18px;top:50%;transform:translateY(-50%);color:var(--txm);font-size:12px;pointer-events:none}
 .kb-search-wrap input:focus{border-color:var(--ac)}
 .kb-search-wrap input::placeholder{color:var(--txm)}
 /* Knowledge list */
@@ -1217,7 +1217,7 @@ function buildPanel(){
       <div class="rm-item"><div class="rm-header"><span class="rm-icon">💬</span><span class="rm-name">企业微信</span></div><div class="rm-desc">通过企业微信机器人接入</div><div class="rm-tog-wrap"><span>已关闭</span><div class="rm-toggle" onclick="this.classList.toggle('on');showToast(this.classList.contains('on')?'💬 企微已启用':'💬 企微已关闭')"></div></div></div>
       <div class="rm-item"><div class="rm-header"><span class="rm-icon">📱</span><span class="rm-name">小程序/H5</span></div><div class="rm-desc">微信小程序和 PWA 移动端</div><div class="rm-tog-wrap"><span>已启用</span><div class="rm-toggle on" onclick="this.classList.toggle('on');showToast(this.classList.contains('on')?'📱 移动端已启用':'📱 移动端已关闭')"></div></div></div>`;break;
     default:
-      html=`<div style="padding:20px;text-align:center;color:var(--txm)"><div style="font-size:24px;margin-bottom:8px">${{chat:'💬'[,workspace:'🏠',file:'📁',knowledge:'📚',monitor:'📊',flow:'🔀',remote:'📱',agents:'🤖',settings:'⚙️'][currentPage]}</div><p>左侧面板内容<br>可根据模块扩展</p></div>`;
+      html=`<div style="padding:20px;text-align:center;color:var(--txm)"><div style="font-size:24px;margin-bottom:8px">${{'chat':'💬','workspace':'🏠','file':'📁','knowledge':'📚','monitor':'📊','flow':'🔀','remote':'📱','agents':'🤖','settings':'⚙️'}[currentPage]}</div><p>左侧面板内容<br>可根据模块扩展</p></div>`;
   }
   c.innerHTML=html;
 }
@@ -1243,7 +1243,11 @@ function sendChat(){
   },800);
 }
 
-function handleChatKey(e){if(e.key==='Enter'&&!e.metaKey&&!e.ctrlKey){e.preventDefault();sendChat()}}
+function handleChatKey(e){
+  if(e.key==='Enter' && !e.metaKey && !e.ctrlKey){
+    e.preventDefault();sendChat();
+  }
+}
 
 function changeAgent(){
   currentAgent=document.getElementById('chatAgentSel').value.split(' ')[1];
@@ -1260,7 +1264,26 @@ function switchWsTab(el,tab){
   el.classList.add('active');showToast('切换到: '+tab);
 }
 
-function toggleFolder(el){el.classList.toggle('opened')}
+let folderOpenState={};
+function toggleFolder(el){
+  const name = el.textContent.trim();
+  const key = 'fe_' + name;
+  if(!folderOpenState[key]) folderOpenState[key] = el.classList.contains('opened');
+  folderOpenState[key] = !folderOpenState[key];
+  el.classList.toggle('opened');
+  // Hide/show children
+  let sib = el.nextElementSibling;
+  while(sib){
+    const sibDepth = parseFloat(getComputedStyle(sib).getPropertyValue('--depth')) || 0;
+    const thisDepth = parseFloat(getComputedStyle(el).getPropertyValue('--depth')) || 0;
+    if(sibDepth > thisDepth){
+      sib.style.display = folderOpenState[key] ? '' : 'none';
+      sib = sib.nextElementSibling;
+    } else {
+      break;
+    }
+  }
+}
 
 function togglePanelSearch(){showToast('全局搜索 (Ctrl+K)')}
 
@@ -1318,8 +1341,8 @@ document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('clic
 
 // ── Search ──
 document.getElementById('globalSearch').addEventListener('keydown',e=>{
-  if(e.key==='Enter'){showToast('搜索: '+this.value)},
-  if(e.key==='Escape')this.value='';
+  if(e.key==='Enter'){e.preventDefault();showToast('搜索: '+e.target.value)}
+  if(e.key==='Escape')e.target.value='';
 });
 document.addEventListener('keydown',e=>{
   if((e.key==='k')&&(e.metaKey||e.ctrlKey)){e.preventDefault();document.getElementById('globalSearch').focus()}
