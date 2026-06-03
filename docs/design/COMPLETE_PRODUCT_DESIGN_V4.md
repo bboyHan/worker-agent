@@ -3,14 +3,175 @@
 ## 一、核心定位
 
 打造方便你自己的一站式工作平台：
-- ✅ 全面管理 Hermes Agent（界面化深度操作）
+- ✅ 全面管理多 Agent（不限 Hermes，支持 Claude/DeepSeek/GPT 等）
 - ✅ 随时随地通过企微/飞书/微信远程对话分派 Agent 工作
 - ✅ 查看所有 Agent 运行中的分析视图
+- ✅ 在所有电脑上跨平台一键安装和部署
 - ❌ 不需要在 app 里写代码
+- ❌ 不限定于 Hermes，面向所有主流 Agent 平台
 
-## 二、Chat 右侧抽屉（核心 UI 组件）
+---
 
-### 2.1 三态设计
+## 二、跨平台部署方案（一、关键设计！）
+
+### 2.1 目标平台覆盖
+
+| 平台 | 部署方式 | 说明 |
+|------|---------|------|
+| Windows | Docker Desktop + .bat | 双击一键安装 |
+| macOS | Docker Desktop + .sh | 一行命令安装 |
+| Linux/Ubuntu | Docker + .sh | 一行命令安装 |
+| CentOS/RHEL | Docker + .sh | 一行命令安装 |
+| 无 Docker 环境 | Python 脚本 + Node.js | 纯离线安装 |
+
+### 2.2 部署架构图
+
+```
+┌───────┬───────┬───────┬───────┐
+│ Windows│ macOS │ Linux │ WSL   │
+│ Docker│ Docker│Docker │ Docker│
+└───────┴───────┴───────┴───────┘
+         │
+    ┌────▼────┐
+    │ Worker   │
+    │ Agent v4 │
+    │ container│
+    └────┬────┘
+         │
+    ┌────▼────┐     ┌───────────────┐
+    │ PostgreSQL│     │ Agent Adapter  │
+    │ Redis     │     │ (Agent 接入层)  │
+    └─────────┘     └───────┬───────┘
+         │
+    ┌────▼────┐     ┌───────┐ ┌───────┐
+    │ Hermes  │ ──→ │ Claude│ ──→
+    │ Agent   │ ──→ │ DeepSeek│
+    └─────────┘     └───────┘ └───────┘
+         │
+    ┌────▼────┐     ┌───────┐
+    │ GPT-4   │     │ Ollama│
+    └─────────┘     └───────┘
+```
+
+### 2.3 Agent Adapter 架构（关键设计！）
+
+```
+┌─────────────────────────────────────────┐
+│          Agent Platform Adapter          │
+│                                          │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ │
+│  │ Hermes   │ │ Claude   │ │ DeepSeek │ │
+│  │ Adapter  │ │ Adapter  │ │ Adapter  │ │
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘ │
+│       └─────────────┴─────────────┘      │
+│                   │                      │
+│         ┌─────────▼─────────┐           │
+│         │  Unified Agent API│           │
+│         │  (标准化协议)       │           │
+│         └─────────┬─────────┘           │
+│                   │                      │
+│         ┌─────────▼─────────┐           │
+│         │  Worker Agent     │           │
+│         │  Core Engine      │           │
+│         └───────────────────┘           │
+└─────────────────────────────────────────┘
+```
+
+#### 标准化 Agent 接入协议
+
+```python
+# AgentAdapter 接口定义
+class AgentAdapter:
+    def __init__(config, platform):
+        self.platform = platform  # 'hermes', 'claude', 'gpt', 'deepseek', 'ollama'
+        self.config = config
+        
+    def send_message(session_id, message):
+        # 统一发送消息接口
+        return response
+        
+    def get_status(session_id):
+        # 统一获取状态接口
+        return {
+            'status': 'running'|'idle'|'offline'
+            'progress': 0.0-1.0,
+            'agent_platform': 'hermes'  // 来源平台
+        }
+        
+    def get_resources(session_id):
+        # 统一获取资源使用接口
+        return {
+            'cpu': float,
+            'memory': float,
+            'disk_io': float
+        }
+```
+
+#### 平台配置示例
+
+```json
+// agents.json
+{
+  "agents": [
+    {
+      "name": "Code Assistant (Hermes)",
+      "platform": "hermes",
+      "endpoint": "http://hermes:8000/api",
+      "model": "hermes-3-lima",
+      "config": {
+        "temperature": 0.7,
+        "max_tokens": 4096
+      }
+    },
+    {
+      "name": "DeepSeek Research",
+      "platform": "deepseek",
+      "endpoint": "https://api.deepseek.com/v1",
+      "model": "deepseek-reasoner",
+      "config": {
+        "temperature": 0.3,
+        "api_key": "${DEEPSEEK_API_KEY}"
+      }
+    },
+    {
+      "name": "Claude 3.5 Sonnet",
+      "platform": "claude",
+      "endpoint": "https://api.anthropic.com/v1",
+      "model": "claude-3-5-sonnet-20241022",
+      "config": {
+        "temperature": 0.5,
+        "api_key": "${ANTHROPIC_API_KEY}"
+      }
+    },
+    {
+      "name": "GPT-4 Turbo",
+      "platform": "gpt",
+      "endpoint": "https://api.openai.com/v1/chat/completions",
+      "model": "gpt-4-turbo",
+      "config": {
+        "temperature": 0.7,
+        "api_key": "${OPENAI_API_KEY}"
+      }
+    },
+    {
+      "name": "Ollama (本地)",
+      "platform": "ollama",
+      "endpoint": "http://localhost:11434",
+      "model": "qwen2.5-coder:32b",
+      "config": {
+        "temperature": 0.3,
+        "local": true
+      }
+    }
+  ]
+}
+```
+
+---
+
+## 三、Chat 右侧抽屉（核心 UI 组件）
+
+### 3.1 三态设计
 
 | 状态 | 宽度 | 行为 |
 |------|------|------|
@@ -18,7 +179,7 @@
 | 小窗态 | 380px | 默认宽度，可拖拽 200-800px |
 | 全宽态 | 50% 宽 | 默认占 50%，可拖拽调整左右比例 |
 
-### 2.2 交互
+### 3.2 交互
 
 ```
 折叠态 ←→ 小窗态 ←→ 全宽态
@@ -30,7 +191,7 @@
 - 有最小宽度/高度限制
 - 拖拽时显示辅助线
 
-### 2.3 CSS 实现
+### 3.3 CSS 实现
 
 ```css
 /* 折叠态：5px */
@@ -70,9 +231,11 @@
 }
 ```
 
-## 三、类 VS Code 分屏 + 标签页系统
+---
 
-### 3.1 多面板分屏（最多 4 面板）
+## 四、类 VS Code 分屏 + 标签页系统
+
+### 4.1 多面板分屏（最多 4 面板）
 
 ```
 ┌──────┬──────┐
@@ -91,20 +254,20 @@ Layout {
 }
 ```
 
-### 3.2 拖拽调整
+### 4.2 拖拽调整
 
 - 所有面板边界支持拖拽
 - 显示辅助线（对齐到 25%/50%/75%）
 - 鼠标拖拽更新 CSS flex 比例
 
-### 3.3 标签页系统
+### 4.3 标签页系统
 
 ```
 ┌──────┬──────┬──────┐
 │ Tab1 │ Tab2 │ Tab3 │ x
 ├──────┴──────┴──────┤
 │  Panel Content     │
-└────────────────────┘
+└─────────────────────┘
 ```
 
 - 每个面板可含多个标签页
@@ -112,9 +275,11 @@ Layout {
 - 右键菜单：固定 / 关闭其他 / 关闭右侧
 - 标签页可关闭（x按钮）
 
-## 四、远程控制（远程对话分派）
+---
 
-### 4.1 核心流程
+## 五、远程控制（远程对话分派）
+
+### 5.1 核心流程
 
 ```
 外出时 ← 企微/飞书/微信 ← 发指令给 Agent ← 分派项目/任务/工作
@@ -122,7 +287,7 @@ Layout {
 监控                                    对话
 ```
 
-### 4.2 功能设计
+### 5.2 功能设计
 
 | 功能 | 说明 |
 |------|------|
@@ -131,7 +296,7 @@ Layout {
 | 任务监控 | 查看 Agent 运行状态 |
 | 消息通知 | Agent 完成任务后推送通知 |
 
-### 4.3 架构图
+### 5.3 架构图
 
 ```
 ┌──────┐  企微/   ┌─────────────┐  消息  ┌────────┐
@@ -142,16 +307,16 @@ Layout {
                    状态回传
 ```
 
-## 五、Agent 运行监控
+---
 
-### 5.1 分析视图
+## 六、Agent 运行监控
 
-展示 Agent 正在做什么：
+### 6.1 分析视图（支持所有 Agent 平台）
 
 ```
 ┌────────────────────────────────────────────┐
-│ Agent: Code Assistant                      │
-│ 状态: 🟢 运行中                             │
+│ Agent: Code Assistant (GPT-4)              │
+│ 平台: OpenAI GPT-4 · 状态: 🟢 运行中        │
 ├────────────────────────────────────────────┤
 │ 正在分析: /src/utils/auth.ts               │
 │ 进度: ████████████░░░ 82%                  │
@@ -162,11 +327,11 @@ Layout {
 │ 10:25 生成修复方案                           │
 │ 10:26 正在写代码  (当前)                     │
 ├────────────────────────────────────────────┤
-│ 资源:  CPU:24%  内存:120MB  磁盘:15MB     │
+│ 资源:  CPU:24%  内存:120MB  磁盘:15MB      │
 └────────────────────────────────────────────┘
 ```
 
-### 5.2 监控面板
+### 6.2 监控面板
 
 | 面板 | 内容 |
 |------|------|
@@ -175,16 +340,46 @@ Layout {
 | 资源使用 | CPU/内存/磁盘 |
 | 告警 | 异常停止/错误 |
 
-## 六、Agent 管理（核心板块）
+---
+
+## 七、Agent 管理（核心板块）
 
 | 功能 | 说明 |
 |------|------|
-| Agent 列表 | 所有 Agent 状态展示 |
+| Agent 列表 | 所有 Agent 状态展示（支持多平台） |
 | 状态管理 | 在线/离线/任务中/空闲 |
-| 能力管理 | 各 Agent 能做什么 |
-| 模型选择 | 配置使用的 LLM |
+| 能力管理 | 各 Agent 能做什么（能力标签） |
+| 模型选择 | 配置使用的 LLM（可切换平台） |
+| API Key 管理 | 安全存储各平台 API Key |
+| 平台信息 | Agent 来源平台显示 |
 
-## 七、会话管理（核心板块）
+### Agent 列表示例：
+
+```
+┌─────────────────────────────────────┐
+│ Agent 列表                            │
+├─────────────────────────────────────┤
+│ 🤖 Code Assistant      🟢 运行中    │
+│    平台: OpenAI GPT-4               │
+│    温度: 0.7 · Token: 4096          │
+├─────────────────────────────────────┤
+│ 🧠 DeepSeek Research   🟢 空闲      │
+│    平台: DeepSeek R1                │
+│    温度: 0.3 · Token: 8192          │
+├─────────────────────────────────────┤
+│ 💡 Claude 3.5 Sonnet   🔴 离线      │
+│    平台: Anthropic Claude             │
+│    温度: 0.5 · Token: 4096          │
+├─────────────────────────────────────┤
+│ 🤖 Ollama Qwen2.5     💤 运行中     │
+│    平台: Ollama (本地)              │
+│    温度: 0.3 · Token: 32768         │
+└─────────────────────────────────────┘
+```
+
+---
+
+## 八、会话管理（核心板块）
 
 | 功能 | 说明 |
 |------|------|
@@ -192,20 +387,26 @@ Layout {
 | 切换会话 | 快速切换 |
 | 搜索会话 | 查找历史 |
 
-## 八、知识库（保留）
+---
+
+## 九、知识库（保留）
 
 收集工作文档、读书笔记等，形成个人知识体系。
 
-## 九、快捷键（参考 Raycast）
+---
+
+## 十、快捷键（参考 Raycast）
 
 | 快捷键 | 功能 |
-|--------|------|
+|--------|-- |
 | ⌘K | 全局搜索 |
-| ⌘ShiftK | 切换 Chat 抽屉状态 |
+| ⌘ShiftK | 折叠/展开 Chat 抽屉 |
 | ⌘D | 分屏 |
 | ⌘ShiftD | 上下分屏 |
 | Ctrl+Tab | 切换标签页 |
 | ⌘W | 关闭标签页 |
+
+---
 
 ## Top 5 开源项目
 
@@ -213,15 +414,19 @@ Layout {
 |------|------|------|
 | Zed | 84k⭐ | 多面板分屏 |
 | VS Code | 185k⭐ | 标签页系统 |
-| Raycast | 20k⭐ | 全局快捷键 |
+| Docker | 85k⭐ | 跨平台部署 |
 | n8n | 85k⭐ | 远程工作流 |
-| tldraw | 46k⭐ | 拖拽引擎 |
+| Raycast | 20k⭐ | 全局快捷键 |
+
+---
 
 ## 迭代计划
 
 | 版本 | 功能 |
 |------|------|
 | v4.1 | Chat 右侧抽屉 + 三态切换 |
-| v4.2 | 类 VS Code 分屏 + 标签页 |
+| v4.2 | 类 VSCode 分屏 + 标签页 |
 | v4.3 | 远程控制 + 远程对话 |
 | v4.4 | Agent 运行监控 + 分析视图 |
+| v4.5 | Agent 生态接入框架 |
+| v4.6 | 跨平台一键部署 |
